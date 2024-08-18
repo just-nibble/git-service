@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -61,22 +62,49 @@ func (c *GitHubClient) GetRepository(owner, repo string) (*Repository, error) {
 }
 
 // GetCommits fetches the commits for a GitHub repository by its owner, name, and since date
+// Handles pagination by following the "Link" header
 func (c *GitHubClient) GetCommits(owner, repo string, since time.Time) ([]Commit, error) {
+	var allCommits []Commit
 	url := fmt.Sprintf("%s/repos/%s/%s/commits?since=%s", baseURL, owner, repo, since.Format(time.RFC3339))
-	resp, err := c.HTTPClient.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch commits: %v", err)
-	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch commits: received status code %d", resp.StatusCode)
+	for url != "" {
+		resp, err := c.HTTPClient.Get(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch commits: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to fetch commits: received status code %d", resp.StatusCode)
+		}
+
+		var commits []Commit
+		if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
+			return nil, fmt.Errorf("failed to decode commits response: %v", err)
+		}
+
+		allCommits = append(allCommits, commits...)
+
+		// Check for the "Link" header to see if there are more pages
+		url = extractNextLink(resp.Header.Get("Link"))
 	}
 
-	var commits []Commit
-	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
-		return nil, fmt.Errorf("failed to decode commits response: %v", err)
+	return allCommits, nil
+}
+
+// extractNextLink parses the Link header to find the "next" URL
+func extractNextLink(linkHeader string) string {
+	if linkHeader == "" {
+		return ""
 	}
 
-	return commits, nil
+	links := strings.Split(linkHeader, ",")
+	for _, link := range links {
+		parts := strings.Split(link, ";")
+		if len(parts) >= 2 && strings.TrimSpace(parts[1]) == `rel="next"` {
+			return strings.TrimSpace(parts[0][1 : len(parts[0])-1])
+		}
+	}
+
+	return ""
 }
