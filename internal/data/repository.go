@@ -16,6 +16,10 @@ type RepositoryStore interface {
 	SaveCommit(commit *Commit) error
 	GetCommitsByRepository(repoName string) ([]Commit, error)
 	GetTopAuthors(limit int) ([]Author, error)
+	GetAllRepositories() ([]Repository, error)
+	GetCommitByHash(hash string) (*Commit, error)
+	CreateCommit(commit *Commit) error
+	GetOrCreateAuthor(name, email string) (*Author, error)
 }
 
 // GormRepositoryStore is a GORM-based implementation of RepositoryStore
@@ -30,12 +34,12 @@ func NewGormRepositoryStore(db *gorm.DB) *GormRepositoryStore {
 
 func InitDB() *gorm.DB {
 	// Set up PostgreSQL connection details
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=UTC",
-		getEnv("DB_HOST", "localhost"),
-		getEnv("DB_USER", "postgres"),
-		getEnv("DB_PASSWORD", "password"),
-		getEnv("DB_NAME", "indexer"),
-		getEnv("DB_PORT", "5432"),
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+		os.Getenv("DB_PORT"),
 	)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -92,4 +96,54 @@ func (s *GormRepositoryStore) GetTopAuthors(limit int) ([]Author, error) {
 		LIMIT ?
 	`, limit).Scan(&authors).Error
 	return authors, err
+}
+
+// GetAllRepositories retrieves all repositories from the database
+func (s *GormRepositoryStore) GetAllRepositories() ([]Repository, error) {
+	var repositories []Repository
+	if err := s.db.Find(&repositories).Error; err != nil {
+		return nil, fmt.Errorf("failed to retrieve repositories: %v", err)
+	}
+	return repositories, nil
+}
+
+// GetCommitByHash retrieves a commit by its hash
+func (s *GormRepositoryStore) GetCommitByHash(hash string) (*Commit, error) {
+	var commit Commit
+	if err := s.db.Where("hash = ?", hash).First(&commit).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, fmt.Errorf("commit not found")
+		}
+		return nil, fmt.Errorf("failed to retrieve commit: %v", err)
+	}
+	return &commit, nil
+}
+
+// CreateCommit inserts a new commit into the database
+func (s *GormRepositoryStore) CreateCommit(commit *Commit) error {
+	if err := s.db.Create(commit).Error; err != nil {
+		return fmt.Errorf("failed to create commit: %v", err)
+	}
+	return nil
+}
+
+// GetOrCreateAuthor retrieves an existing author by name and email, or creates a new one if it does not exist.
+func (s *GormRepositoryStore) GetOrCreateAuthor(name, email string) (*Author, error) {
+	var author Author
+	err := s.db.Where("name = ? AND email = ?", name, email).First(&author).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// Author not found, create a new one
+			author = Author{
+				Name:  name,
+				Email: email,
+			}
+			if err := s.db.Create(&author).Error; err != nil {
+				return nil, fmt.Errorf("failed to create author: %v", err)
+			}
+		} else {
+			return nil, fmt.Errorf("failed to retrieve author: %v", err)
+		}
+	}
+	return &author, nil
 }

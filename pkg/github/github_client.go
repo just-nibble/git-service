@@ -24,9 +24,12 @@ func NewGitHubClient() *GitHubClient {
 
 // Repository represents the JSON structure of a GitHub repository
 type Repository struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	URL  string `json:"html_url"`
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	URL   string `json:"html_url"`
+	Owner struct {
+		Login string `json:"login"`
+	} `json:"owner"`
 }
 
 // Commit represents the JSON structure of a GitHub commit
