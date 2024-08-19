@@ -33,7 +33,7 @@ git clone github.com/just-nibble/git-service
 make
 ```
 
-The above will create a .env file and start all containers and seed the database with commits from chromium
+The above will create a .env file, run tests and start all containers and seed the database with commits from chromium
 
 ### 2. Add a repo to the DB
 

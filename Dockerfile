@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Run tests
-# RUN go test ./... -v
+RUN go test ./... -v
 
 # Build the Go app
 RUN go build  \
