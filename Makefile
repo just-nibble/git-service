@@ -12,7 +12,6 @@ all: copy-env prepare-volumes up
 # Create the PostgreSQL volume directory and set permissions
 prepare-volumes:
 	@mkdir -p ./postgres_data
-	@sudo chmod -R 777 ./postgres_data
 
 # Copy the .env.sample file to .env if .env does not exist
 copy-env:

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	_ "github.com/just-nibble/git-service/cmd/indexer/docs" // Import your generated docs
 	"github.com/just-nibble/git-service/internal/data"
 	"github.com/just-nibble/git-service/internal/routes"
 	"github.com/just-nibble/git-service/internal/seeder"
@@ -13,20 +12,6 @@ import (
 	"github.com/just-nibble/git-service/pkg/github"
 )
 
-// @title Github Service API
-// @version 1.0
-// @description This is an indexer for github.
-// @termsOfService http://swagger.io/terms/
-
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @host petstore.swagger.io
-// @BasePath /
 func main() {
 	// Initialize the database
 	db := data.InitDB()

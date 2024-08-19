@@ -24,14 +24,6 @@ func NewIndexerService(db data.RepositoryStore, gc *github.GitHubClient) *Indexe
 	}
 }
 
-// @Summary Add a new repository
-// @Description Add a new repository to be tracked
-// @Tags repositories
-// @Accept json
-// @Produce json
-// @Param repository body data.Repository true "Repository Data"
-// @Success 201 {object} data.Repository
-// @Router /repositories [post]
 func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Owner string `json:"owner"`
@@ -89,15 +81,6 @@ func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Repository %s/%s added successfully", req.Owner, req.Repo)
 }
 
-// @Summary Get top N commit authors
-// @Description Get the top N commit authors by commit counts
-// @Tags commits
-// @Accept json
-// @Produce json
-// @Param limit query int true "Number of top authors"
-// @Param repo query string true "Repo name"
-// @Success 200 {array} data.Author
-// @Router /top-authors [get]
 func (s *IndexerService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 	repoName := r.URL.Query().Get("repo")
 	if repoName == "" {
@@ -122,14 +105,6 @@ func (s *IndexerService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 	utils.SuccessResponse(w, http.StatusOK, authors)
 }
 
-// @Summary Get commits by repository name
-// @Description Get commits for a specific repository by its name
-// @Tags commits
-// @Accept json
-// @Produce json
-// @Param name query string true "Repository Name"
-// @Success 200 {array} data.Commit
-// @Router /commits [get]
 func (s *IndexerService) GetCommitsByRepo(w http.ResponseWriter, r *http.Request) {
 	repoName := r.URL.Query().Get("repo")
 	if repoName == "" {

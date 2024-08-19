@@ -84,7 +84,7 @@ func (s *GormRepositoryStore) SaveCommit(commit *Commit) error {
 func (s *GormRepositoryStore) GetCommitsByRepository(repoName string) ([]Commit, error) {
 	// var commits []Commit
 	var repository Repository
-	err := s.db.Preload("Commits").Where("name = ?", repoName).Find(&repository).Error
+	err := s.db.Preload("Commits.Author").Where("name = ?", repoName).Find(&repository).Error
 	// err := s.db.Joins("Repository").Where("repositories.name = ?", repoName).Find(&commits).Error
 	return repository.Commits, err
 }

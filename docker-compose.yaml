@@ -23,13 +23,13 @@ services:
     ports:
     - 5432:5432
     restart: always
+    user: 1000:1000
     environment:
       POSTGRES_DB: testdb
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: mysecretpassword
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
-    user: "${UID}:${GID}"  # Match the host user and group IDs
     networks:
       - app-network
 networks:

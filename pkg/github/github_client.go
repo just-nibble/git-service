@@ -72,7 +72,6 @@ func (c *GitHubClient) GetRepository(owner, repo string) (*Repository, error) {
 }
 
 // GetCommits fetches the commits for a GitHub repository by its owner, name, and since date
-// Handles pagination by following the "Link" header
 func (c *GitHubClient) GetCommits(owner, repo string, since time.Time) ([]Commit, error) {
 	var allCommits []Commit
 	url := fmt.Sprintf("%s/repos/%s/%s/commits?since=%s", baseURL, owner, repo, since.Format(time.RFC3339))
