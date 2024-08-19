@@ -30,6 +30,10 @@ type Repository struct {
 	Owner struct {
 		Login string `json:"login"`
 	} `json:"owner"`
+	ForksCount      int `json:"forks_count"`
+	StarsCount      int `json:"stargazers_count"`
+	OpenIssuesCount int `json:"open_issues_count"`
+	WatchersCount   int `json:"watchers_count"`
 }
 
 // Commit represents the JSON structure of a GitHub commit

@@ -6,14 +6,18 @@ import (
 
 // Repository represents a GitHub repository
 type Repository struct {
-	ID        uint   `gorm:"primaryKey"`
-	OwnerName string `gorm:"index"`
-	Name      string `gorm:"uniqueIndex"`
-	URL       string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Commits   []Commit  `gorm:"foreignKey:RepositoryID"`
-	Since     time.Time `json:"since"`
+	ID              uint   `gorm:"primaryKey"`
+	OwnerName       string `gorm:"index"`
+	Name            string `gorm:"uniqueIndex"`
+	URL             string
+	ForksCount      int `json:"forks_count"`
+	StarsCount      int `json:"stargazers_count"`
+	OpenIssuesCount int `json:"open_issues_count"`
+	WatchersCount   int `json:"watchers_count"`
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	Commits         []Commit  `gorm:"foreignKey:RepositoryID"`
+	Since           time.Time `json:"since"`
 }
 
 // Commit represents a commit in a repository

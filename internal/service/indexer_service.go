@@ -65,10 +65,14 @@ func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 
 	// Save repository in the database
 	dbRepo := &data.Repository{
-		OwnerName: repo.Owner.Login,
-		Name:      repo.Name,
-		URL:       repo.URL,
-		Since:     sinceDate,
+		OwnerName:       repo.Owner.Login,
+		Name:            repo.Name,
+		URL:             repo.URL,
+		Since:           sinceDate,
+		ForksCount:      repo.ForksCount,
+		StarsCount:      repo.StarsCount,
+		OpenIssuesCount: repo.OpenIssuesCount,
+		WatchersCount:   repo.WatchersCount,
 	}
 	if err := s.db.CreateRepository(dbRepo); err != nil {
 		http.Error(w, "Failed to save repository", http.StatusInternalServerError)
@@ -143,6 +147,35 @@ func (s *IndexerService) GetCommitsByRepo(w http.ResponseWriter, r *http.Request
 	utils.SuccessResponse(w, http.StatusOK, commits)
 }
 
+func (s *IndexerService) ResetStartDate(w http.ResponseWriter, r *http.Request) {
+	repoName := r.URL.Query().Get("repo")
+
+	var req struct {
+		Since string `json:"since"` // Expecting an ISO date string
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Parse the provided date
+	since, err := time.Parse(time.RFC3339, req.Since)
+	if err != nil {
+		http.Error(w, "Invalid date format. Use RFC3339 format", http.StatusBadRequest)
+		return
+	}
+
+	// Call the service to reset the start date
+	if err := s.db.ResetRepositoryStartDate(repoName, since); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Start date reset successfully"})
+}
+
 // FetchAndSaveLatestCommits fetches the latest commits from GitHub and saves them to the database
 func (s *IndexerService) FetchAndSaveLatestCommits() {
 	// Fetch all repositories
@@ -207,8 +240,6 @@ func (s *IndexerService) IndexCommits(repo *data.Repository) error {
 	}
 
 	for _, commit := range commits {
-		log.Println("indexing...")
-		log.Println(commit)
 		// Check if the commit already exists
 		existingCommit, err := s.db.GetCommitByHash(commit.SHA)
 		if err != nil && err.Error() != "commit not found" {
@@ -267,4 +298,13 @@ func (s *IndexerService) StartRepositoryMonitor(interval time.Duration) {
 			}
 		}
 	}
+}
+
+func (s *IndexerService) GetRepository(repoName string, repoOwner string) (github.Repository, error) {
+	repo, err := s.githubClient.GetRepository(repoOwner, repoName)
+	if err != nil {
+		return github.Repository{}, err
+	}
+
+	return *repo, nil
 }

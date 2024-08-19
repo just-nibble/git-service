@@ -8,6 +8,7 @@ import (
 	_ "github.com/just-nibble/git-service/cmd/indexer/docs" // Import your generated docs
 	"github.com/just-nibble/git-service/internal/data"
 	"github.com/just-nibble/git-service/internal/routes"
+	"github.com/just-nibble/git-service/internal/seeder"
 	"github.com/just-nibble/git-service/internal/service"
 	"github.com/just-nibble/git-service/pkg/github"
 )
@@ -41,6 +42,11 @@ func main() {
 
 	// Set up HTTP routes
 	router := routes.NewRouter(indexerService)
+
+	// Seed the database if necessary
+	if err := seeder.SeedDatabase(db, indexerService); err != nil {
+		log.Fatalf("Failed to seed database: %v", err)
+	}
 
 	// Start the background worker
 	go indexerService.StartRepositoryMonitor(1 * time.Minute)

@@ -6,6 +6,7 @@ services:
     container_name: github-service
     ports:
       - "8080:8080"
+    restart: always
     environment:
       - DB_HOST=db
       - DB_PORT=5432
@@ -17,16 +18,18 @@ services:
     networks:
       - app-network
   db:
-    image: postgres:14-alpine
+    image: postgres:15
     container_name: github-service-db
     ports:
     - 5432:5432
+    restart: always
     environment:
       POSTGRES_DB: testdb
       POSTGRES_USER: testuser
       POSTGRES_PASSWORD: mysecretpassword
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+    user: "${UID}:${GID}"  # Match the host user and group IDs
     networks:
       - app-network
 networks:

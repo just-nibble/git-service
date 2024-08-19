@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -20,6 +21,7 @@ type RepositoryStore interface {
 	GetCommitByHash(hash string) (*Commit, error)
 	CreateCommit(commit *Commit) error
 	GetOrCreateAuthor(name, email string) (*Author, error)
+	ResetRepositoryStartDate(repoName string, since time.Time) error
 }
 
 // GormRepositoryStore is a GORM-based implementation of RepositoryStore
@@ -148,4 +150,19 @@ func (s *GormRepositoryStore) GetOrCreateAuthor(name, email string) (*Author, er
 		}
 	}
 	return &author, nil
+}
+
+func (s *GormRepositoryStore) ResetRepositoryStartDate(repoName string, since time.Time) error {
+	var repo Repository
+	if err := s.db.Where("name = ?", repoName).First(&repo).Error; err != nil {
+		return err
+	}
+
+	// Update the since date
+	repo.Since = since
+	if err := s.db.Save(&repo).Error; err != nil {
+		return err
+	}
+
+	return nil
 }

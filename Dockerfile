@@ -1,6 +1,9 @@
 # Use the official Golang image as the base image
 FROM golang:1.22.6 AS builder
 
+# Create a non-root user for running the application
+RUN useradd -u 1001 nonroot
+
 # Set the Current Working Directory inside the container
 WORKDIR /app
 
@@ -17,20 +20,27 @@ COPY . .
 # RUN go test ./... -v
 
 # Build the Go app
-RUN go build -o main ./cmd/indexer
+RUN go build  \
+    -ldflags="-linkmode external -extldflags -static" \
+    -tags netgo \
+    -o main ./cmd/indexer
 
 # Start a new stage from scratch
 FROM alpine:latest
+
+# Copy the /etc/passwd file from the build stage to provide non-root user information
+COPY --from=builder /etc/passwd /etc/passwd
+
 
 # Install necessary packages and glibc compatibility
 RUN apk --no-cache add ca-certificates \
     && apk --no-cache add libc6-compat
 
-# Set the Current Working Directory inside the container
-WORKDIR /root/
-
 # Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/main .
+COPY --from=builder /app/main /main
+
+# Use the non-root user
+USER nonroot
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
