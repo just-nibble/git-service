@@ -80,9 +80,11 @@ func (s *GormRepositoryStore) SaveCommit(commit *Commit) error {
 }
 
 func (s *GormRepositoryStore) GetCommitsByRepository(repoName string) ([]Commit, error) {
-	var commits []Commit
-	err := s.db.Joins("Repository").Where("repositories.name = ?", repoName).Find(&commits).Error
-	return commits, err
+	// var commits []Commit
+	var repository Repository
+	err := s.db.Preload("Commits").Where("name = ?", repoName).Find(&repository).Error
+	// err := s.db.Joins("Repository").Where("repositories.name = ?", repoName).Find(&commits).Error
+	return repository.Commits, err
 }
 
 func (s *GormRepositoryStore) GetTopAuthors(limit int) ([]Author, error) {
@@ -110,7 +112,7 @@ func (s *GormRepositoryStore) GetAllRepositories() ([]Repository, error) {
 // GetCommitByHash retrieves a commit by its hash
 func (s *GormRepositoryStore) GetCommitByHash(hash string) (*Commit, error) {
 	var commit Commit
-	if err := s.db.Where("hash = ?", hash).First(&commit).Error; err != nil {
+	if err := s.db.Where("commit_hash = ?", hash).First(&commit).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("commit not found")
 		}

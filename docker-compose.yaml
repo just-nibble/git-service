@@ -14,6 +14,8 @@ services:
       - DB_NAME=testdb
     depends_on:
       - db
+    networks:
+      - app-network
   db:
     image: postgres:14-alpine
     container_name: github-service-db
@@ -25,4 +27,9 @@ services:
       POSTGRES_PASSWORD: mysecretpassword
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+networks:
+  app-network:
+    driver: bridge
 

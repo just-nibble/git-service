@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	_ "github.com/just-nibble/git-service/cmd/indexer/docs" // Import your generated docs
 	"github.com/just-nibble/git-service/internal/data"
@@ -40,6 +41,9 @@ func main() {
 
 	// Set up HTTP routes
 	router := routes.NewRouter(indexerService)
+
+	// Start the background worker
+	go indexerService.StartRepositoryMonitor(1 * time.Minute)
 
 	// Start the HTTP server
 	log.Println("Server is running on port 8080")

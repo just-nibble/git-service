@@ -9,7 +9,7 @@ import (
 )
 
 func setupDB() (*gorm.DB, error) {
-	dsn := "user=postgres password=mysecretpassword dbname=testdb port=5432 sslmode=disable" // Adjust this DSN as needed
+	dsn := "host=db user=postgres password=mysecretpassword dbname=testdb port=5432 sslmode=disable" // Adjust this DSN as needed
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err

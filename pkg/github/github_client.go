@@ -34,13 +34,16 @@ type Repository struct {
 
 // Commit represents the JSON structure of a GitHub commit
 type Commit struct {
-	SHA     string `json:"sha"`
-	Message string `json:"commit.message"`
-	Author  struct {
-		Name  string    `json:"name"`
-		Email string    `json:"email"`
-		Date  time.Time `json:"date"`
-	} `json:"commit.author"`
+	SHA    string `json:"sha"`
+	Commit struct {
+		Message string `json:"message"`
+		Author  struct {
+			Name  string    `json:"name"`
+			Email string    `json:"email"`
+			Date  time.Time `json:"date"`
+		} `json:"author"`
+		URL string `json:"url"`
+	} `json:"commit"`
 }
 
 // GetRepository fetches details of a GitHub repository by its owner and name
@@ -70,7 +73,7 @@ func (c *GitHubClient) GetCommits(owner, repo string, since time.Time) ([]Commit
 	var allCommits []Commit
 	url := fmt.Sprintf("%s/repos/%s/%s/commits?since=%s", baseURL, owner, repo, since.Format(time.RFC3339))
 
-	for url != "" {
+	if url != "" {
 		resp, err := c.HTTPClient.Get(url)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch commits: %v", err)
@@ -87,9 +90,6 @@ func (c *GitHubClient) GetCommits(owner, repo string, since time.Time) ([]Commit
 		}
 
 		allCommits = append(allCommits, commits...)
-
-		// Check for the "Link" header to see if there are more pages
-		url = extractNextLink(resp.Header.Get("Link"))
 	}
 
 	return allCommits, nil

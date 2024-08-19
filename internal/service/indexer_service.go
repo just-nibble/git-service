@@ -34,13 +34,20 @@ func NewIndexerService(db data.RepositoryStore, gc *github.GitHubClient) *Indexe
 // @Router /repositories [post]
 func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Owner string    `json:"owner"`
-		Repo  string    `json:"repo"`
-		Since time.Time `json:"since"`
+		Owner string `json:"owner"`
+		Repo  string `json:"repo"`
+		Since string `json:"since"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Parse the 'since' date
+	sinceDate, err := time.Parse("2006-01-02", req.Since)
+	if err != nil {
+		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid date format for 'since'")
 		return
 	}
 
@@ -61,6 +68,7 @@ func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 		OwnerName: repo.Owner.Login,
 		Name:      repo.Name,
 		URL:       repo.URL,
+		Since:     sinceDate,
 	}
 	if err := s.db.CreateRepository(dbRepo); err != nil {
 		http.Error(w, "Failed to save repository", http.StatusInternalServerError)
@@ -166,9 +174,9 @@ func (s *IndexerService) FetchAndSaveLatestCommits() {
 			}
 
 			// Retrieve or create the author
-			author, err := s.db.GetOrCreateAuthor(commit.Author.Name, commit.Author.Email)
+			author, err := s.db.GetOrCreateAuthor(commit.Commit.Author.Name, commit.Commit.Author.Email)
 			if err != nil {
-				log.Printf("Failed to retrieve or create author %s: %v", commit.Author.Name, err)
+				log.Printf("Failed to retrieve or create author %s: %v", commit.Commit.Author.Name, err)
 				continue
 			}
 
@@ -177,8 +185,8 @@ func (s *IndexerService) FetchAndSaveLatestCommits() {
 				RepositoryID: repo.ID,
 				AuthorID:     author.ID,
 				CommitHash:   commit.SHA,
-				Message:      commit.Message,
-				Date:         commit.Author.Date,
+				Message:      commit.Commit.Message,
+				Date:         commit.Commit.Author.Date,
 			}
 
 			if err := s.db.CreateCommit(newCommit); err != nil {
@@ -192,13 +200,15 @@ func (s *IndexerService) FetchAndSaveLatestCommits() {
 func (s *IndexerService) IndexCommits(repo *data.Repository) error {
 
 	// Fetch latest commits from GitHub
-	commits, err := s.githubClient.GetCommits(repo.OwnerName, repo.Name, time.Now().Add(-time.Hour))
+	commits, err := s.githubClient.GetCommits(repo.OwnerName, repo.Name, repo.Since)
 	if err != nil {
 		log.Printf("Failed to fetch commits for repository %s: %v", repo.Name, err)
 		return err
 	}
 
 	for _, commit := range commits {
+		log.Println("indexing...")
+		log.Println(commit)
 		// Check if the commit already exists
 		existingCommit, err := s.db.GetCommitByHash(commit.SHA)
 		if err != nil && err.Error() != "commit not found" {
@@ -212,9 +222,9 @@ func (s *IndexerService) IndexCommits(repo *data.Repository) error {
 		}
 
 		// Retrieve or create the author
-		author, err := s.db.GetOrCreateAuthor(commit.Author.Name, commit.Author.Email)
+		author, err := s.db.GetOrCreateAuthor(commit.Commit.Author.Name, commit.Commit.Author.Email)
 		if err != nil {
-			log.Printf("Failed to retrieve or create author %s: %v", commit.Author.Name, err)
+			log.Printf("Failed to retrieve or create author %s: %v", commit.Commit.Author.Name, err)
 			continue
 		}
 
@@ -223,8 +233,8 @@ func (s *IndexerService) IndexCommits(repo *data.Repository) error {
 			RepositoryID: repo.ID,
 			AuthorID:     author.ID,
 			CommitHash:   commit.SHA,
-			Message:      commit.Message,
-			Date:         commit.Author.Date,
+			Message:      commit.Commit.Message,
+			Date:         commit.Commit.Author.Date,
 		}
 
 		if err := s.db.CreateCommit(newCommit); err != nil {
@@ -233,4 +243,28 @@ func (s *IndexerService) IndexCommits(repo *data.Repository) error {
 	}
 
 	return nil
+}
+
+func (s *IndexerService) StartRepositoryMonitor(interval time.Duration) {
+	log.Println("monitoring...")
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			repos, err := s.db.GetAllRepositories()
+			if err != nil {
+				log.Println(err)
+			}
+
+			for _, repo := range repos {
+
+				err = s.IndexCommits(&repo)
+				if err != nil {
+					log.Println(err)
+				}
+			}
+		}
+	}
 }
