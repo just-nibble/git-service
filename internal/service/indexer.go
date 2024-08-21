@@ -12,19 +12,19 @@ import (
 	"github.com/just-nibble/git-service/pkg/response"
 )
 
-type IndexerService struct {
+type Indexer struct {
 	db           data.RepositoryStore
 	githubClient *github.GitHubClient
 }
 
-func NewIndexerService(db data.RepositoryStore, gc *github.GitHubClient) *IndexerService {
-	return &IndexerService{
+func NewIndexer(db data.RepositoryStore, gc *github.GitHubClient) *Indexer {
+	return &Indexer{
 		db:           db,
 		githubClient: gc,
 	}
 }
 
-func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
+func (s *Indexer) AddRepository(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Owner string `json:"owner"`
 		Repo  string `json:"repo"`
@@ -81,7 +81,7 @@ func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Repository %s/%s added successfully", req.Owner, req.Repo)
 }
 
-func (s *IndexerService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
+func (s *Indexer) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 	repoName := r.URL.Query().Get("repo")
 	if repoName == "" {
 		http.Error(w, "Repository name is required", http.StatusBadRequest)
@@ -105,7 +105,7 @@ func (s *IndexerService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 	response.SuccessResponse(w, http.StatusOK, authors)
 }
 
-func (s *IndexerService) GetCommitsByRepo(w http.ResponseWriter, r *http.Request) {
+func (s *Indexer) GetCommitsByRepo(w http.ResponseWriter, r *http.Request) {
 	repoName := r.URL.Query().Get("repo")
 	if repoName == "" {
 		http.Error(w, "Repository name is required", http.StatusBadRequest)
@@ -122,7 +122,7 @@ func (s *IndexerService) GetCommitsByRepo(w http.ResponseWriter, r *http.Request
 	response.SuccessResponse(w, http.StatusOK, commits)
 }
 
-func (s *IndexerService) ResetStartDate(w http.ResponseWriter, r *http.Request) {
+func (s *Indexer) ResetStartDate(w http.ResponseWriter, r *http.Request) {
 	repoName := r.URL.Query().Get("repo")
 
 	var req struct {
@@ -152,7 +152,7 @@ func (s *IndexerService) ResetStartDate(w http.ResponseWriter, r *http.Request) 
 }
 
 // FetchAndSaveLatestCommits fetches the latest commits from GitHub and saves them to the database
-func (s *IndexerService) FetchAndSaveLatestCommits() {
+func (s *Indexer) FetchAndSaveLatestCommits() {
 	// Fetch all repositories
 	repositories, err := s.db.GetAllRepositories()
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *IndexerService) FetchAndSaveLatestCommits() {
 }
 
 // IndexCommits fetches and saves commits for a repository starting from the given date.
-func (s *IndexerService) IndexCommits(repo *data.Repository) error {
+func (s *Indexer) IndexCommits(repo *data.Repository) error {
 
 	// Fetch latest commits from GitHub
 	commits, err := s.githubClient.GetCommits(repo.OwnerName, repo.Name, repo.Since)
@@ -251,7 +251,7 @@ func (s *IndexerService) IndexCommits(repo *data.Repository) error {
 	return nil
 }
 
-func (s *IndexerService) StartRepositoryMonitor(interval time.Duration) {
+func (s *Indexer) StartRepositoryMonitor(interval time.Duration) {
 	log.Println("monitoring...")
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -275,7 +275,7 @@ func (s *IndexerService) StartRepositoryMonitor(interval time.Duration) {
 	}
 }
 
-func (s *IndexerService) GetRepository(repoName string, repoOwner string) (github.Repository, error) {
+func (s *Indexer) GetRepository(repoName string, repoOwner string) (github.Repository, error) {
 	repo, err := s.githubClient.GetRepository(repoOwner, repoName)
 	if err != nil {
 		return github.Repository{}, err

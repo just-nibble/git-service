@@ -7,7 +7,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func NewRouter(svc *service.IndexerService) *http.ServeMux {
+func NewRouter(svc *service.Indexer) *http.ServeMux {
 	router := http.NewServeMux()
 	router.HandleFunc("/repositories", svc.AddRepository)
 	router.HandleFunc("/commits/", svc.GetCommitsByRepo)

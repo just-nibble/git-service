@@ -23,18 +23,18 @@ func main() {
 	gc := github.NewGitHubClient()
 
 	// Create the indexer service
-	indexerService := service.NewIndexerService(repoStore, gc)
+	indexer := service.NewIndexer(repoStore, gc)
 
 	// Set up HTTP routes
-	router := routes.NewRouter(indexerService)
+	router := routes.NewRouter(indexer)
 
 	// Seed the database if necessary
-	if err := seeder.SeedDatabase(db, indexerService); err != nil {
+	if err := seeder.SeedDatabase(db, indexer); err != nil {
 		log.Fatalf("Failed to seed database: %v", err)
 	}
 
 	// Start the background worker
-	go indexerService.StartRepositoryMonitor(1 * time.Minute)
+	go indexer.StartRepositoryMonitor(1 * time.Minute)
 
 	// Start the HTTP server
 	log.Println("Server is running on port 8080")
