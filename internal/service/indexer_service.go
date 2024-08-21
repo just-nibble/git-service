@@ -9,7 +9,7 @@ import (
 
 	"github.com/just-nibble/git-service/internal/data"
 	"github.com/just-nibble/git-service/pkg/github"
-	"github.com/just-nibble/git-service/utils"
+	"github.com/just-nibble/git-service/pkg/response"
 )
 
 type IndexerService struct {
@@ -39,7 +39,7 @@ func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 	// Parse the 'since' date
 	sinceDate, err := time.Parse("2006-01-02", req.Since)
 	if err != nil {
-		utils.ErrorResponse(w, http.StatusBadRequest, "Invalid date format for 'since'")
+		response.ErrorResponse(w, http.StatusBadRequest, "Invalid date format for 'since'")
 		return
 	}
 
@@ -77,7 +77,7 @@ func (s *IndexerService) AddRepository(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	utils.SuccessResponse(w, http.StatusCreated, dbRepo)
+	response.SuccessResponse(w, http.StatusCreated, dbRepo)
 	log.Printf("Repository %s/%s added successfully", req.Owner, req.Repo)
 }
 
@@ -102,7 +102,7 @@ func (s *IndexerService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, authors)
+	response.SuccessResponse(w, http.StatusOK, authors)
 }
 
 func (s *IndexerService) GetCommitsByRepo(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func (s *IndexerService) GetCommitsByRepo(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	utils.SuccessResponse(w, http.StatusOK, commits)
+	response.SuccessResponse(w, http.StatusOK, commits)
 }
 
 func (s *IndexerService) ResetStartDate(w http.ResponseWriter, r *http.Request) {
