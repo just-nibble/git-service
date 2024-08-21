@@ -29,7 +29,7 @@ func main() {
 	router := routes.NewRouter(indexer)
 
 	// Seed the database if necessary
-	if err := seeder.SeedDatabase(db, indexer); err != nil {
+	if err := seeder.Seed(db, indexer); err != nil {
 		log.Fatalf("Failed to seed database: %v", err)
 	}
 

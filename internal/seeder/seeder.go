@@ -8,8 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// SeedDatabase seeds the database with the Chromium repository, along with its commits and authors, if the database is empty
-func SeedDatabase(db *gorm.DB, Indexer *service.Indexer) error {
+// Seed seeds the database with the Chromium repository, along with its commits and authors, if the database is empty
+func Seed(db *gorm.DB, Indexer *service.Indexer) error {
 	// Check if the repository table is empty
 	var count int64
 	if err := db.Model(&data.Repository{}).Count(&count).Error; err != nil {
