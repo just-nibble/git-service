@@ -28,7 +28,13 @@ Each section includes example `curl` requests for interacting with the API.
 git clone https://github.com/just-nibble/git-service
 ```
 
-2. *Run the code*.
+2. cd into directory
+
+```bash
+cd git-service
+```
+
+3. *Run the code*.
 
 ```bash
 make
