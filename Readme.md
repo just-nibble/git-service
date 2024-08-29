@@ -9,6 +9,7 @@ This README provides instructions on how to efficiently perform the following ac
 
 Each section includes example `curl` requests for interacting with the API.
 
+###  Warning: Change the values in .env to more production suitable values!
 ---
 
 ### 1. Installation
@@ -24,7 +25,7 @@ Each section includes example `curl` requests for interacting with the API.
 1. *Clone the repo*.
 
 ```bash
-git clone github.com/just-nibble/git-service
+git clone https://github.com/just-nibble/git-service
 ```
 
 2. *Run the code*.
@@ -54,8 +55,8 @@ curl --request POST \
   --url http://localhost:8080/repositories \
   --header 'Content-Type: application/json' \
   --data '{
-  "owner": "chromium",
-  "repo": "chromium",
+  "owner": "zostera",
+  "repo": "django-bootstrap4",
   "since": "2020-01-02"
 }'
 ```
@@ -137,7 +138,7 @@ This action retrieves all the commits for a given repository, identified by its 
 #### Example `curl` Request
 
 ```bash
-curl -X GET "http://localhost:8080/commits?repo=chromium" -H "accept: application/json"
+curl -X GET "http://localhost:8080/commits/?repo=chromium" -H "accept: application/json"
 ```
 
 #### Response Example

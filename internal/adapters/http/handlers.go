@@ -3,7 +3,7 @@ package routes
 import (
 	"net/http"
 
-	"github.com/just-nibble/git-service/internal/service"
+	"github.com/just-nibble/git-service/internal/core/service"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 

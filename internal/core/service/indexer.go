@@ -7,17 +7,18 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/just-nibble/git-service/internal/data"
-	"github.com/just-nibble/git-service/pkg/github"
+	"github.com/just-nibble/git-service/internal/adapters/api"
+	"github.com/just-nibble/git-service/internal/adapters/db"
+	"github.com/just-nibble/git-service/internal/core/domain/entities"
 	"github.com/just-nibble/git-service/pkg/response"
 )
 
 type Indexer struct {
-	db           data.RepositoryStore
-	githubClient *github.GitHubClient
+	db           db.RepositoryStore
+	githubClient *api.GitHubClient
 }
 
-func NewIndexer(db data.RepositoryStore, gc *github.GitHubClient) *Indexer {
+func NewIndexer(db db.RepositoryStore, gc *api.GitHubClient) *Indexer {
 	return &Indexer{
 		db:           db,
 		githubClient: gc,
@@ -55,8 +56,8 @@ func (s *Indexer) AddRepository(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save repository in the database
-	dbRepo := &data.Repository{
+	// Save repository in the dbbase
+	dbRepo := &entities.Repository{
 		OwnerName:       repo.Owner.Login,
 		Name:            repo.Name,
 		URL:             repo.URL,
@@ -95,7 +96,7 @@ func (s *Indexer) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch top commit authors from the database
+	// Fetch top commit authors from the dbbase
 	authors, err := s.db.GetTopAuthors(n)
 	if err != nil {
 		http.Error(w, "Failed to retrieve authors", http.StatusInternalServerError)
@@ -112,7 +113,7 @@ func (s *Indexer) GetCommitsByRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch commits from the database
+	// Fetch commits from the dbbase
 	commits, err := s.db.GetCommitsByRepository(repoName)
 	if err != nil {
 		http.Error(w, "Failed to retrieve commits", http.StatusInternalServerError)
@@ -151,7 +152,7 @@ func (s *Indexer) ResetStartDate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Start date reset successfully"})
 }
 
-// FetchAndSaveLatestCommits fetches the latest commits from GitHub and saves them to the database
+// FetchAndSaveLatestCommits fetches the latest commits from GitHub and saves them to the dbbase
 func (s *Indexer) FetchAndSaveLatestCommits() {
 	// Fetch all repositories
 	repositories, err := s.db.GetAllRepositories()
@@ -189,7 +190,7 @@ func (s *Indexer) FetchAndSaveLatestCommits() {
 			}
 
 			// Save the new commit
-			newCommit := &data.Commit{
+			newCommit := &entities.Commit{
 				RepositoryID: repo.ID,
 				AuthorID:     author.ID,
 				CommitHash:   commit.SHA,
@@ -205,7 +206,7 @@ func (s *Indexer) FetchAndSaveLatestCommits() {
 }
 
 // IndexCommits fetches and saves commits for a repository starting from the given date.
-func (s *Indexer) IndexCommits(repo *data.Repository) error {
+func (s *Indexer) IndexCommits(repo *entities.Repository) error {
 
 	// Fetch latest commits from GitHub
 	commits, err := s.githubClient.GetCommits(repo.OwnerName, repo.Name, repo.Since)
@@ -235,7 +236,7 @@ func (s *Indexer) IndexCommits(repo *data.Repository) error {
 		}
 
 		// Save the new commit
-		newCommit := &data.Commit{
+		newCommit := &entities.Commit{
 			RepositoryID: repo.ID,
 			AuthorID:     author.ID,
 			CommitHash:   commit.SHA,
@@ -275,11 +276,58 @@ func (s *Indexer) StartRepositoryMonitor(interval time.Duration) {
 	}
 }
 
-func (s *Indexer) GetRepository(repoName string, repoOwner string) (github.Repository, error) {
+func (s *Indexer) GetRepository(repoName string, repoOwner string) (api.Repository, error) {
 	repo, err := s.githubClient.GetRepository(repoOwner, repoName)
 	if err != nil {
-		return github.Repository{}, err
+		return api.Repository{}, err
 	}
 
 	return *repo, nil
+}
+
+// Seed seeds the database with the Chromium repository, along with its commits and authors, if the database is empty
+func (s *Indexer) Seed() error {
+	// Check if the repository table is empty
+	count, err := s.db.CountRepository()
+	if err != nil {
+		return err
+	}
+
+	// If the repository table is empty, seed with the Chromium repository
+	if count == 0 {
+		log.Println("Seeding database with Chromium repository...")
+
+		// Fetch repository details from GitHub
+		repo, err := s.GetRepository("chromium", "chromium")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		// Save repository in the database
+		chromiumRepo := &entities.Repository{
+			OwnerName:       repo.Owner.Login,
+			Name:            repo.Name,
+			URL:             repo.URL,
+			ForksCount:      repo.ForksCount,
+			StarsCount:      repo.StarsCount,
+			OpenIssuesCount: repo.OpenIssuesCount,
+			WatchersCount:   repo.WatchersCount,
+		}
+
+		if err := s.db.CreateRepository(chromiumRepo); err != nil {
+			return err
+		}
+
+		// Start background indexing of commits
+		go func() {
+			if err := s.IndexCommits(chromiumRepo); err != nil {
+				log.Println(err)
+			}
+		}()
+
+		log.Println("Database seeding completed with Chromium repository, commits, and authors.")
+	}
+
+	return nil
 }

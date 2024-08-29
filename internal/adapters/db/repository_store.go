@@ -1,27 +1,27 @@
-package data
+package db
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
-	"gorm.io/driver/postgres"
+	"github.com/just-nibble/git-service/internal/core/domain/entities"
 	"gorm.io/gorm"
 )
 
 // RepositoryStore defines an interface for database operations
 type RepositoryStore interface {
-	CreateRepository(repo *Repository) error
-	GetRepositoryByName(name string) (*Repository, error)
-	SaveCommit(commit *Commit) error
-	GetCommitsByRepository(repoName string) ([]Commit, error)
-	GetTopAuthors(limit int) ([]Author, error)
-	GetAllRepositories() ([]Repository, error)
-	GetCommitByHash(hash string) (*Commit, error)
-	CreateCommit(commit *Commit) error
-	GetOrCreateAuthor(name, email string) (*Author, error)
+	CreateRepository(repo *entities.Repository) error
+	GetRepositoryByName(name string) (*entities.Repository, error)
+	SaveCommit(commit *entities.Commit) error
+	GetCommitsByRepository(repoName string) ([]entities.Commit, error)
+	GetTopAuthors(limit int) ([]entities.Author, error)
+	GetAllRepositories() ([]entities.Repository, error)
+	GetCommitByHash(hash string) (*entities.Commit, error)
+	CreateCommit(commit *entities.Commit) error
+	GetOrCreateAuthor(name, email string) (*entities.Author, error)
 	ResetRepositoryStartDate(repoName string, since time.Time) error
+	CountRepository() (int64, error)
 }
 
 // GormRepositoryStore is a GORM-based implementation of RepositoryStore
@@ -34,29 +34,6 @@ func NewGormRepositoryStore(db *gorm.DB) *GormRepositoryStore {
 	return &GormRepositoryStore{db: db}
 }
 
-func InitDB() *gorm.DB {
-	// Set up PostgreSQL connection details
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_NAME"),
-		os.Getenv("DB_PORT"),
-	)
-
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
-	}
-
-	// Automatically migrate the schema
-	if err := db.AutoMigrate(&Repository{}, &Commit{}, &Author{}); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
-	}
-
-	return db
-}
-
 // Helper function to fetch environment variables with a fallback value
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
@@ -67,30 +44,30 @@ func getEnv(key, fallback string) string {
 
 // Implement the methods for RepositoryStore interface
 
-func (s *GormRepositoryStore) CreateRepository(repo *Repository) error {
+func (s *GormRepositoryStore) CreateRepository(repo *entities.Repository) error {
 	return s.db.Create(repo).Error
 }
 
-func (s *GormRepositoryStore) GetRepositoryByName(name string) (*Repository, error) {
-	var repo Repository
+func (s *GormRepositoryStore) GetRepositoryByName(name string) (*entities.Repository, error) {
+	var repo entities.Repository
 	err := s.db.Where("name = ?", name).First(&repo).Error
 	return &repo, err
 }
 
-func (s *GormRepositoryStore) SaveCommit(commit *Commit) error {
+func (s *GormRepositoryStore) SaveCommit(commit *entities.Commit) error {
 	return s.db.Create(commit).Error
 }
 
-func (s *GormRepositoryStore) GetCommitsByRepository(repoName string) ([]Commit, error) {
+func (s *GormRepositoryStore) GetCommitsByRepository(repoName string) ([]entities.Commit, error) {
 	// var commits []Commit
-	var repository Repository
+	var repository entities.Repository
 	err := s.db.Preload("Commits.Author").Where("name = ?", repoName).Find(&repository).Error
 	// err := s.db.Joins("Repository").Where("repositories.name = ?", repoName).Find(&commits).Error
 	return repository.Commits, err
 }
 
-func (s *GormRepositoryStore) GetTopAuthors(limit int) ([]Author, error) {
-	var authors []Author
+func (s *GormRepositoryStore) GetTopAuthors(limit int) ([]entities.Author, error) {
+	var authors []entities.Author
 	err := s.db.Raw(`
 		SELECT authors.id, authors.name, authors.email, COUNT(commits.id) as commit_count
 		FROM authors
@@ -103,8 +80,8 @@ func (s *GormRepositoryStore) GetTopAuthors(limit int) ([]Author, error) {
 }
 
 // GetAllRepositories retrieves all repositories from the database
-func (s *GormRepositoryStore) GetAllRepositories() ([]Repository, error) {
-	var repositories []Repository
+func (s *GormRepositoryStore) GetAllRepositories() ([]entities.Repository, error) {
+	var repositories []entities.Repository
 	if err := s.db.Find(&repositories).Error; err != nil {
 		return nil, fmt.Errorf("failed to retrieve repositories: %v", err)
 	}
@@ -112,8 +89,8 @@ func (s *GormRepositoryStore) GetAllRepositories() ([]Repository, error) {
 }
 
 // GetCommitByHash retrieves a commit by its hash
-func (s *GormRepositoryStore) GetCommitByHash(hash string) (*Commit, error) {
-	var commit Commit
+func (s *GormRepositoryStore) GetCommitByHash(hash string) (*entities.Commit, error) {
+	var commit entities.Commit
 	if err := s.db.Where("commit_hash = ?", hash).First(&commit).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, fmt.Errorf("commit not found")
@@ -124,7 +101,7 @@ func (s *GormRepositoryStore) GetCommitByHash(hash string) (*Commit, error) {
 }
 
 // CreateCommit inserts a new commit into the database
-func (s *GormRepositoryStore) CreateCommit(commit *Commit) error {
+func (s *GormRepositoryStore) CreateCommit(commit *entities.Commit) error {
 	if err := s.db.Create(commit).Error; err != nil {
 		return fmt.Errorf("failed to create commit: %v", err)
 	}
@@ -132,13 +109,13 @@ func (s *GormRepositoryStore) CreateCommit(commit *Commit) error {
 }
 
 // GetOrCreateAuthor retrieves an existing author by name and email, or creates a new one if it does not exist.
-func (s *GormRepositoryStore) GetOrCreateAuthor(name, email string) (*Author, error) {
-	var author Author
+func (s *GormRepositoryStore) GetOrCreateAuthor(name, email string) (*entities.Author, error) {
+	var author entities.Author
 	err := s.db.Where("name = ? AND email = ?", name, email).First(&author).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			// Author not found, create a new one
-			author = Author{
+			author = entities.Author{
 				Name:  name,
 				Email: email,
 			}
@@ -153,7 +130,7 @@ func (s *GormRepositoryStore) GetOrCreateAuthor(name, email string) (*Author, er
 }
 
 func (s *GormRepositoryStore) ResetRepositoryStartDate(repoName string, since time.Time) error {
-	var repo Repository
+	var repo entities.Repository
 	if err := s.db.Where("name = ?", repoName).First(&repo).Error; err != nil {
 		return err
 	}
@@ -165,4 +142,13 @@ func (s *GormRepositoryStore) ResetRepositoryStartDate(repoName string, since ti
 	}
 
 	return nil
+}
+
+func (s *GormRepositoryStore) CountRepository() (int64, error) {
+	var count int64
+	if err := s.db.Model(&entities.Repository{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
