@@ -50,8 +50,11 @@ func (s *GormRepositoryStore) CreateRepository(repo *entities.Repository) error 
 
 func (s *GormRepositoryStore) GetRepositoryByName(name string) (*entities.Repository, error) {
 	var repo entities.Repository
-	err := s.db.Where("name = ?", name).First(&repo).Error
-	return &repo, err
+	err := s.db.Where("name = ?", name).Limit(1).Find(&repo).Error
+	if err != nil {
+		return nil, err
+	}
+	return &repo, nil
 }
 
 func (s *GormRepositoryStore) SaveCommit(commit *entities.Commit) error {
@@ -91,10 +94,9 @@ func (s *GormRepositoryStore) GetAllRepositories() ([]entities.Repository, error
 // GetCommitByHash retrieves a commit by its hash
 func (s *GormRepositoryStore) GetCommitByHash(hash string) (*entities.Commit, error) {
 	var commit entities.Commit
-	if err := s.db.Where("commit_hash = ?", hash).First(&commit).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, fmt.Errorf("commit not found")
-		}
+	err := s.db.Where("commit_hash = ?", hash).Limit(1).Find(&commit).Error
+
+	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve commit: %v", err)
 	}
 	return &commit, nil
@@ -111,21 +113,22 @@ func (s *GormRepositoryStore) CreateCommit(commit *entities.Commit) error {
 // GetOrCreateAuthor retrieves an existing author by name and email, or creates a new one if it does not exist.
 func (s *GormRepositoryStore) GetOrCreateAuthor(name, email string) (*entities.Author, error) {
 	var author entities.Author
-	err := s.db.Where("name = ? AND email = ?", name, email).First(&author).Error
+	err := s.db.Where("name = ? AND email = ?", name, email).Limit(1).Find(&author).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			// Author not found, create a new one
-			author = entities.Author{
-				Name:  name,
-				Email: email,
-			}
-			if err := s.db.Create(&author).Error; err != nil {
-				return nil, fmt.Errorf("failed to create author: %v", err)
-			}
-		} else {
-			return nil, fmt.Errorf("failed to retrieve author: %v", err)
+		return nil, fmt.Errorf("failed to retrieve author: %v", err)
+	}
+
+	if author.ID == 0 {
+		// Author not found, create a new one
+		author = entities.Author{
+			Name:  name,
+			Email: email,
+		}
+		if err := s.db.Create(&author).Error; err != nil {
+			return nil, fmt.Errorf("failed to create author: %v", err)
 		}
 	}
+
 	return &author, nil
 }
 

@@ -8,13 +8,16 @@ services:
       - "8080:8080"
     restart: always
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=testuser
-      - DB_PASSWORD=mysecretpassword
-      - DB_NAME=testdb
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    env_file:
+      - .env
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - app-network
   db:
@@ -25,13 +28,20 @@ services:
     restart: always
     user: 1000:1000
     environment:
-      POSTGRES_DB: testdb
-      POSTGRES_USER: testuser
-      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    env_file:
+      - .env
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 networks:
   app-network:
     driver: bridge

@@ -75,10 +75,13 @@ func TestGetRepositorySuccess(t *testing.T) {
 
 func TestGetCommitsSuccess(t *testing.T) {
 	// Mock HTTP client with a successful response
+	page := 1
+	perPage := 100
+
 	mockTransport := &MockTransport{
 		RoundTripper: func(req *http.Request) (*http.Response, error) {
-			expectedSince := "2023-08-18T00:00:00Z" // RFC3339 format
-			expectedURL := fmt.Sprintf("%s/repos/%s/%s/commits?since=%s", baseURL, "octocat", "hello-world", expectedSince)
+			expectedSince := "2012-03-06T23:06:50Z" // RFC3339 format
+			expectedURL := fmt.Sprintf("%s/repos/%s/%s/commits?since=%s&page=%d&per_page=%d", baseURL, "octocat", "hello-world", expectedSince, page, perPage)
 
 			if req.URL.String() != expectedURL {
 				t.Logf("Expected URL: %s", expectedURL)
@@ -128,13 +131,13 @@ func TestGetCommitsSuccess(t *testing.T) {
 	}
 
 	// Parse the 'since' date
-	since, err := time.Parse(time.RFC3339, "2023-08-18T00:00:00Z")
+	since, err := time.Parse(time.RFC3339, "2012-03-06T23:06:50Z")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
 
 	// Call GetCommits
-	commits, err := client.GetCommits("octocat", "hello-world", since)
+	commits, _, err := client.GetCommits("octocat", "hello-world", since, page, perPage)
 
 	// Check for errors
 	if err != nil {

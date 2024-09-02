@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
+	"os"
 	"time"
 )
 
@@ -72,45 +72,70 @@ func (c *GitHubClient) GetRepository(owner, repo string) (*Repository, error) {
 }
 
 // GetCommits fetches the commits for a GitHub repository by its owner, name, and since date
-func (c *GitHubClient) GetCommits(owner, repo string, since time.Time) ([]Commit, error) {
-	var allCommits []Commit
-	url := fmt.Sprintf("%s/repos/%s/%s/commits?since=%s", baseURL, owner, repo, since.Format(time.RFC3339))
+func (c *GitHubClient) GetCommits(owner, repo string, since time.Time, page int, perPage int) ([]Commit, bool, error) {
+	url := fmt.Sprintf(
+		"%s/repos/%s/%s/commits?since=%s&page=%d&per_page=%d",
+		baseURL, owner, repo, since.Format(time.RFC3339),
+		page, perPage,
+	)
 
-	if url != "" {
-		resp, err := c.HTTPClient.Get(url)
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch commits: %v", err)
-		}
-		defer resp.Body.Close()
+	resp, err := c.HTTPClient.Get(url)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to fetch commits: %v", err)
+	}
+	defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("failed to fetch commits: received status code %d", resp.StatusCode)
-		}
-
-		var commits []Commit
-		if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
-			return nil, fmt.Errorf("failed to decode commits response: %v", err)
-		}
-
-		allCommits = append(allCommits, commits...)
+	// Handle rate-limiting scenario
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, true, nil // Return rate-limited status
 	}
 
-	return allCommits, nil
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("failed to fetch commits: received status code %d", resp.StatusCode)
+	}
+
+	var commits []Commit
+	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
+		return nil, false, fmt.Errorf("failed to decode commits response: %v", err)
+	}
+
+	return commits, false, nil
 }
 
-// extractNextLink parses the Link header to find the "next" URL
-func extractNextLink(linkHeader string) string {
-	if linkHeader == "" {
-		return ""
+// fetchPage fetches a single page of commits from GitHub and returns whether the request was rate-limited
+func (c *GitHubClient) FetchPage(owner, repo string, page, perPage int) ([]Commit, bool, error) {
+	client := &http.Client{}
+	url := fmt.Sprintf("%s/repos/%s/%s/commits?page=%d&per_page=%d", baseURL, owner, repo, page, perPage)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to create request: %v", err)
 	}
 
-	links := strings.Split(linkHeader, ",")
-	for _, link := range links {
-		parts := strings.Split(link, ";")
-		if len(parts) >= 2 && strings.TrimSpace(parts[1]) == `rel="next"` {
-			return strings.TrimSpace(parts[0][1 : len(parts[0])-1])
-		}
+	token := os.Getenv("GITHUB_TOKEN")
+	if len(token) != 0 && token != "Not a real token" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 
-	return ""
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle rate-limiting scenario
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, true, nil // Return rate-limited status
+	}
+
+	// Handle non-200 responses
+	if resp.StatusCode != http.StatusOK {
+		return nil, false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var commits []Commit
+	if err := json.NewDecoder(resp.Body).Decode(&commits); err != nil {
+		return nil, false, fmt.Errorf("failed to decode commits response: %v", err)
+	}
+
+	return commits, false, nil
 }
