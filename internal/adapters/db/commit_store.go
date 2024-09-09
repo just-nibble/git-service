@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/just-nibble/git-service/internal/core/domain/entities"
 	"gorm.io/gorm"
@@ -42,7 +43,7 @@ func (s *GormCommitStore) GetCommitByHash(hash string) (*entities.Commit, error)
 	var commit entities.Commit
 	err := s.db.Where("commit_hash = ?", hash).Limit(1).Find(&commit).Error
 	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve commit: %v", err)
+		return nil, fmt.Errorf("failed to retrieve commit: %w", err)
 	}
 	return &commit, nil
 }
@@ -50,7 +51,10 @@ func (s *GormCommitStore) GetCommitByHash(hash string) (*entities.Commit, error)
 // CreateCommit inserts a new commit into the database
 func (s *GormCommitStore) CreateCommit(commit *entities.Commit) error {
 	if err := s.db.Create(commit).Error; err != nil {
-		return fmt.Errorf("failed to create commit: %v", err)
+		if strings.Contains(err.Error(), "duplicate") {
+			return nil
+		}
+		return fmt.Errorf("failed to create commit: %w", err)
 	}
 	return nil
 }

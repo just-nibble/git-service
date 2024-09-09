@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -25,6 +26,7 @@ type RepositoryService struct {
 func NewRepositoryService(db db.RepositoryStore, cms CommitService, gc *api.GitHubClient) *RepositoryService {
 	return &RepositoryService{
 		rs:           db,
+		cms:          cms,
 		githubClient: gc,
 	}
 }
@@ -41,6 +43,8 @@ func (s *RepositoryService) AddRepository(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	ctx := r.Context()
+
 	// Parse the 'since' date
 	sinceDate, err := time.Parse("2006-01-02", req.Since)
 	if err != nil {
@@ -53,38 +57,39 @@ func (s *RepositoryService) AddRepository(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Fetch repository details from GitHub
-	repo, err := s.githubClient.GetRepository(req.Owner, req.Repo)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Save repository in the dbbase
-	dbRepo := &entities.Repository{
-		OwnerName:       repo.Owner.Login,
-		Name:            repo.Name,
-		Description:     repo.Description,
-		Language:        repo.Language,
-		URL:             repo.URL,
-		Since:           sinceDate,
-		ForksCount:      repo.ForksCount,
-		StarsCount:      repo.StarsCount,
-		OpenIssuesCount: repo.OpenIssuesCount,
-		WatchersCount:   repo.WatchersCount,
-	}
-	if err := s.rs.CreateRepository(dbRepo); err != nil {
-		http.Error(w, "Failed to save repository", http.StatusInternalServerError)
-		return
-	}
 	// Start background indexing of commits
 	go func() {
-		if err := s.cms.IndexCommits(dbRepo); err != nil {
+		// Fetch repository details from GitHub
+		repo, err := s.githubClient.GetRepository(req.Owner, req.Repo)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// Save repository in the dbbase
+		dbRepo := &entities.Repository{
+			OwnerName:       repo.Owner.Login,
+			Name:            repo.Name,
+			Description:     repo.Description,
+			Language:        repo.Language,
+			URL:             repo.URL,
+			Since:           sinceDate,
+			ForksCount:      repo.ForksCount,
+			StarsCount:      repo.StarsCount,
+			OpenIssuesCount: repo.OpenIssuesCount,
+			WatchersCount:   repo.WatchersCount,
+		}
+		if err := s.rs.CreateRepository(dbRepo); err != nil {
+			log.Println(err)
+			return
+		}
+
+		if err := s.cms.IndexCommits(ctx, dbRepo); err != nil {
 			log.Println(err)
 		}
 	}()
 
-	response.SuccessResponse(w, http.StatusCreated, dbRepo)
+	response.SuccessResponse(w, http.StatusCreated, "processing...")
 	log.Printf("Repository %s/%s added successfully", req.Owner, req.Repo)
 }
 
@@ -117,7 +122,7 @@ func (s *RepositoryService) ResetStartDate(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(map[string]string{"message": "Start date reset successfully"})
 }
 
-func (s *RepositoryService) StartRepositoryMonitor(interval time.Duration) {
+func (s *RepositoryService) StartRepositoryMonitor(ctx context.Context, interval time.Duration) {
 	log.Println("monitoring...")
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -132,12 +137,16 @@ func (s *RepositoryService) StartRepositoryMonitor(interval time.Duration) {
 
 			for _, repo := range repos {
 
-				err = s.cms.IndexCommits(&repo)
+				err = s.cms.IndexCommits(ctx, &repo)
 				if err != nil {
 					log.Println(err)
 				}
 			}
+		case <-ctx.Done():
+			log.Println("Repository monitor stopped.")
+			return // Stop the monitor when context is canceled
 		}
+
 	}
 }
 
@@ -151,7 +160,7 @@ func (s *RepositoryService) GetRepository(repoName string, repoOwner string) (ap
 }
 
 // Seed seeds the database with the repository, along with its commits and authors, if the database is empty
-func (s *RepositoryService) Seed(repo validators.Repo) error {
+func (s *RepositoryService) Seed(ctx context.Context, repo validators.Repo) error {
 	if err := repo.Validate(); err != nil {
 		return err
 	}
@@ -174,7 +183,11 @@ func (s *RepositoryService) Seed(repo validators.Repo) error {
 		seedRepo := &entities.Repository{
 			OwnerName:       repo.Owner.Login,
 			Name:            repo.Name,
+			Description:     repo.Description,
+			Language:        repo.Language,
 			URL:             repo.URL,
+			CreatedAt:       repo.CreatedAt,
+			UpdatedAt:       repo.UpdatedAt,
 			ForksCount:      repo.ForksCount,
 			StarsCount:      repo.StarsCount,
 			OpenIssuesCount: repo.OpenIssuesCount,
@@ -187,7 +200,7 @@ func (s *RepositoryService) Seed(repo validators.Repo) error {
 
 		// Start background indexing of commits
 		go func() {
-			if err := s.cms.IndexCommits(seedRepo); err != nil {
+			if err := s.cms.IndexCommits(ctx, seedRepo); err != nil {
 				log.Println(err)
 			}
 		}()
@@ -201,12 +214,12 @@ func (s *RepositoryService) ResumeIndexing() error {
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", "https://api.github.com/rate_limit", nil)
 	if err != nil {
-		return fmt.Errorf("failed to create rate limit request: %v", err)
+		return fmt.Errorf("failed to create rate limit request: %w", err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to get rate limit: %v", err)
+		return fmt.Errorf("failed to get rate limit: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -218,7 +231,7 @@ func (s *RepositoryService) ResumeIndexing() error {
 	resetTime := resp.Header.Get("X-RateLimit-Reset")
 	resetTimestamp, err := strconv.ParseInt(resetTime, 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse reset time: %v", err)
+		return fmt.Errorf("failed to parse reset time: %w", err)
 	}
 
 	sleepDuration := time.Until(time.Unix(resetTimestamp, 0))

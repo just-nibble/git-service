@@ -69,6 +69,21 @@ func TestGetRepositorySuccess(t *testing.T) {
 	if repo.Owner.Login != "octocat" {
 		t.Errorf("Expected owner 'octocat', got %s", repo.Owner.Login)
 	}
+	if repo.URL != "https://github.com/octocat/hello-world" {
+		t.Errorf("Expected url 'https://github.com/octocat/hello-world', got %s", repo.Owner.Login)
+	}
+	if repo.ForksCount != 42 {
+		t.Errorf("Expected forks count 42, got %s", repo.Owner.Login)
+	}
+	if repo.StarsCount != 100 {
+		t.Errorf("Expected stars count 100, got %s", repo.Owner.Login)
+	}
+	if repo.OpenIssuesCount != 5 {
+		t.Errorf("Expected open issues 5, got %s", repo.Owner.Login)
+	}
+	if repo.WatchersCount != 200 {
+		t.Errorf("Expected watchers count 200, got %s", repo.Owner.Login)
+	}
 }
 
 func TestGetCommitsSuccess(t *testing.T) {
@@ -135,7 +150,7 @@ func TestGetCommitsSuccess(t *testing.T) {
 	}
 
 	// Call GetCommits
-	commits, _, err := client.GetCommits("octocat", "hello-world", since, page, perPage)
+	commits, err := client.GetCommits("octocat", "hello-world", since, page, perPage)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

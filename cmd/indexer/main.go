@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -32,7 +33,7 @@ func main() {
 	// Initialize the database
 	dB := storage.InitDB()
 	// Initialize the GitHub client
-	gc := api.NewGitHubClient()
+	gc := api.NewGitHubClient(getenv("GITHUB_TOKEN", ""))
 
 	// Create the repository store
 	repoStore := db.NewGormRepositoryStore(dB)
@@ -69,13 +70,16 @@ func main() {
 		monitorInterval:   interval,
 	}
 
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
 	// Seed the database if necessary
-	if err := repoService.Seed(cfg.defaultRepository); err != nil {
+	if err := repoService.Seed(ctx, cfg.defaultRepository); err != nil {
 		log.Fatalf("Failed to seed database: %v", err)
 	}
 
 	// Start the background worker
-	go repoService.StartRepositoryMonitor(time.Duration(cfg.monitorInterval) * time.Minute)
+	go repoService.StartRepositoryMonitor(ctx, time.Duration(cfg.monitorInterval)*time.Second)
 
 	// Start the HTTP server
 	log.Println("Server is running on port 8080")

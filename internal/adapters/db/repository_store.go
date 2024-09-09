@@ -46,7 +46,7 @@ func (s *GormRepositoryStore) GetRepositoryByName(name string) (*entities.Reposi
 func (s *GormRepositoryStore) GetAllRepositories() ([]entities.Repository, error) {
 	var repositories []entities.Repository
 	if err := s.db.Find(&repositories).Error; err != nil {
-		return nil, fmt.Errorf("failed to retrieve repositories: %v", err)
+		return nil, fmt.Errorf("failed to retrieve repositories: %w", err)
 	}
 	return repositories, nil
 }

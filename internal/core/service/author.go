@@ -28,6 +28,8 @@ func (s *AuthorService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+
 	nStr := r.URL.Query().Get("n")
 	n, err := strconv.Atoi(nStr)
 	if err != nil || n <= 0 {
@@ -36,7 +38,7 @@ func (s *AuthorService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch top commit authors from the dbbase
-	authors, err := s.as.GetTopAuthors(n)
+	authors, err := s.as.GetTopAuthors(ctx, n)
 	if err != nil {
 		http.Error(w, "Failed to retrieve authors", http.StatusInternalServerError)
 		return
