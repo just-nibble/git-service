@@ -31,18 +31,29 @@ func getenv(key, fallback string) string {
 func main() {
 	// Initialize the database
 	dB := storage.InitDB()
+	// Initialize the GitHub client
+	gc := api.NewGitHubClient()
 
 	// Create the repository store
 	repoStore := db.NewGormRepositoryStore(dB)
 
-	// Initialize the GitHub client
-	gc := api.NewGitHubClient()
+	authorStore := db.NewGormAuthorStore(dB)
+	authorService := service.NewAuthorService(authorStore, gc)
 
-	// Create the indexer service
-	indexer := service.NewIndexer(repoStore, gc)
+	commitStore := db.NewGormCommitStore(dB)
+	commitService := service.NewCommitService(
+		commitStore, repoStore, authorStore, gc,
+	)
+
+	repoService := service.NewRepositoryService(
+		repoStore, *commitService, gc,
+	)
 
 	// Set up HTTP routes
-	router := routes.NewRouter(indexer)
+	mux := http.NewServeMux()
+	routes.NewAuthorRouter(mux, authorService)
+	routes.NewCommitRouter(mux, commitService)
+	routes.NewRepositoryRouter(mux, repoService)
 
 	interval, err := strconv.Atoi(getenv("MONITOR_INTERVAL", "60"))
 	if err != nil {
@@ -59,16 +70,16 @@ func main() {
 	}
 
 	// Seed the database if necessary
-	if err := indexer.Seed(cfg.defaultRepository); err != nil {
+	if err := repoService.Seed(cfg.defaultRepository); err != nil {
 		log.Fatalf("Failed to seed database: %v", err)
 	}
 
 	// Start the background worker
-	go indexer.StartRepositoryMonitor(time.Duration(cfg.monitorInterval) * time.Minute)
+	go repoService.StartRepositoryMonitor(time.Duration(cfg.monitorInterval) * time.Minute)
 
 	// Start the HTTP server
 	log.Println("Server is running on port 8080")
-	if err := http.ListenAndServe(":8080", router); err != nil {
-		log.Fatalf("Could not start server: %s", err)
+	if err := http.ListenAndServe(":8080", mux); err != nil {
+		log.Fatalf("Could not start server: %v", err)
 	}
 }

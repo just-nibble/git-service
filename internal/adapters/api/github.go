@@ -24,10 +24,12 @@ func NewGitHubClient() *GitHubClient {
 
 // Repository represents the JSON structure of a GitHub repository
 type Repository struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	URL   string `json:"html_url"`
-	Owner struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	URL         string `json:"html_url"`
+	Description string `json:"description"`
+	Language    string `json:"language"`
+	Owner       struct {
 		Login string `json:"login"`
 	} `json:"owner"`
 	ForksCount      int `json:"forks_count"`
@@ -103,7 +105,7 @@ func (c *GitHubClient) GetCommits(owner, repo string, since time.Time, page int,
 }
 
 // fetchPage fetches a single page of commits from GitHub and returns whether the request was rate-limited
-func (c *GitHubClient) FetchPage(owner, repo string, page, perPage int) ([]Commit, bool, error) {
+func (c *GitHubClient) FetchPage(owner, repo string, since time.Time, page int, perPage int) ([]Commit, bool, error) {
 	client := &http.Client{}
 	url := fmt.Sprintf("%s/repos/%s/%s/commits?page=%d&per_page=%d", baseURL, owner, repo, page, perPage)
 	req, err := http.NewRequest("GET", url, nil)
@@ -112,7 +114,7 @@ func (c *GitHubClient) FetchPage(owner, repo string, page, perPage int) ([]Commi
 	}
 
 	token := os.Getenv("GITHUB_TOKEN")
-	if len(token) != 0 && token != "Not a real token" {
+	if len(token) > 1 {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}
 

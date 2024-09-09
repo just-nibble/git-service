@@ -58,8 +58,6 @@ func TestGetRepositorySuccess(t *testing.T) {
 
 	// Call GetRepository
 	repo, err := client.GetRepository("octocat", "hello-world")
-
-	// Check for errors
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -138,8 +136,6 @@ func TestGetCommitsSuccess(t *testing.T) {
 
 	// Call GetCommits
 	commits, _, err := client.GetCommits("octocat", "hello-world", since, page, perPage)
-
-	// Check for errors
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}

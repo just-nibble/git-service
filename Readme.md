@@ -4,8 +4,8 @@ This README provides instructions on how to efficiently perform the following ac
 
 1. **Installation**
 2. **Add a repo to the DB**
-3. **Get the Top N Commit Authors by Commit Counts from the Database**
-4. **Retrieve Commits of a Repository by Repository Name from the Database**
+3. **Usage**
+
 
 Each section includes example `curl` requests for interacting with the API.
 
@@ -51,8 +51,6 @@ This action gets repo data from github saves to the database and starts indexing
 #### Endpoint
 **`POST /repositories`**
 
-- **Parameters**:
-  - `limit`: The number of top authors you wish to retrieve (N).
 
 #### Example `curl` Request
 
@@ -88,7 +86,9 @@ curl --request POST \
 
 ---
 
-### 3. Get the Top N Commit Authors by Commit Counts from the Database
+### 3. Usage
+
+#### Get the Top N Commit Authors by Commit Counts from the Database ####
 
 #### Description
 
@@ -99,7 +99,8 @@ This action retrieves the top N commit authors, ranked by the number of commits 
 **`GET /authors/top?n=N&repo=R`**
 
 - **Parameters**:
-  - `limit`: The number of top authors you wish to retrieve (N).
+  - `n`: The number of top authors you wish to retrieve.
+  - `repo`: The repository name
 
 #### Example `curl` Request
 

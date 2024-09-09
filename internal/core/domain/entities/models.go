@@ -9,6 +9,8 @@ type Repository struct {
 	ID              uint      `json:"id" gorm:"primaryKey"`
 	OwnerName       string    `json:"owner_name" gorm:"index"`
 	Name            string    `json:"repo_name" gorm:"uniqueIndex"`
+	Description     string    `json:"description"`
+	Language        string    `json:"language"`
 	URL             string    `json:"url"`
 	ForksCount      int       `json:"forks_count"`
 	StarsCount      int       `json:"stargazers_count"`
