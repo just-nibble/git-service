@@ -41,6 +41,7 @@ make
 ```
 
 The above will create a .env file, run tests and start all containers and seed the database with commits from chromium
+Add a GITHUB_TOKEN variable to the env if you possess a github token
 
 ### 2. Add a repo to the DB
 
