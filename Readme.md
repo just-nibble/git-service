@@ -66,25 +66,6 @@ curl --request POST \
 }'
 ```
 
-#### Response Example
-
-```json
-{
-  "id": 2,
-  "owner_name": "swaggo",
-  "repo_name": "swag",
-  "url": "https://github.com/swaggo/swag",
-  "forks_count": 1176,
-  "stargazers_count": 10339,
-  "open_issues_count": 339,
-  "watchers_count": 10339,
-  "created_at": "2024-08-19T08:59:39.98424535Z",
-  "updated_at": "2024-08-19T08:59:39.98424535Z",
-  "commits": null,
-  "since": "2020-01-02T00:00:00Z"
-}
-```
-
 ---
 
 ### 3. Usage

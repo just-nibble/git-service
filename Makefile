@@ -3,7 +3,7 @@
 # Variables
 ENV_FILE = .env
 ENV_SAMPLE_FILE = .env.sample
-DOCKER_COMPOSE = docker-compose
+DOCKER_COMPOSE = docker compose
 DOCKER_COMPOSE_CMD = $(DOCKER_COMPOSE) up --build
 
 # Default target
