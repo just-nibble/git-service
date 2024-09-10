@@ -190,6 +190,8 @@ func (s *CommitService) IndexCommits(ctx context.Context, repo *entities.Reposit
 			if err := s.cs.CreateCommit(newCommit); err != nil {
 				log.Printf("Failed to save commit %s: %v", commit.SHA, err)
 			}
+
+			log.Printf("Saved commit #%s for %s", commit.SHA, repo.Name)
 		}
 
 		// Break if the commit list is smaller than `perPage`, meaning no more commits
