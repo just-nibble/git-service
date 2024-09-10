@@ -20,7 +20,6 @@ services:
     ports:
     - 5432:5432
     restart: always
-    user: 1000:1000
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -28,7 +27,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     networks:
       - app-network
     healthcheck:
@@ -39,4 +38,6 @@ services:
 networks:
   app-network:
     driver: bridge
+volumes:
+  pgdata:
 

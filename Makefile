@@ -7,11 +7,7 @@ DOCKER_COMPOSE = docker compose
 DOCKER_COMPOSE_CMD = $(DOCKER_COMPOSE) up --build
 
 # Default target
-all: copy-env prepare-volumes up
-
-# Create the PostgreSQL volume directory and set permissions
-prepare-volumes:
-	@mkdir -p ./postgres_data
+all: copy-env up
 
 # Copy the .env.sample file to .env if .env does not exist
 copy-env:
