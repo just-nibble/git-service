@@ -30,8 +30,7 @@ func TestGetRepositorySuccess(t *testing.T) {
 			}
 
 			// Simulate a successful response with repository details
-			responseBody, _ := json.Marshal(Repository{
-				ID:   1,
+			responseBody, _ := json.Marshal(GitHubRepoMetadataResponse{
 				Name: "hello-world",
 				URL:  "https://github.com/octocat/hello-world",
 				Owner: struct {
@@ -57,7 +56,12 @@ func TestGetRepositorySuccess(t *testing.T) {
 	}
 
 	// Call GetRepository
-	repo, err := client.GetRepository("octocat", "hello-world")
+	since, err := time.Parse(time.RFC3339, "2012-03-06T23:06:50Z")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	repo, err := client.GetRepository("octocat", "hello-world", since)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -66,23 +70,23 @@ func TestGetRepositorySuccess(t *testing.T) {
 	if repo.Name != "hello-world" {
 		t.Errorf("Expected repository name 'hello-world', got %s", repo.Name)
 	}
-	if repo.Owner.Login != "octocat" {
-		t.Errorf("Expected owner 'octocat', got %s", repo.Owner.Login)
+	if repo.OwnerName != "octocat" {
+		t.Errorf("Expected owner 'octocat', got %s", repo.OwnerName)
 	}
 	if repo.URL != "https://github.com/octocat/hello-world" {
-		t.Errorf("Expected url 'https://github.com/octocat/hello-world', got %s", repo.Owner.Login)
+		t.Errorf("Expected url 'https://github.com/octocat/hello-world', got %s", repo.OwnerName)
 	}
 	if repo.ForksCount != 42 {
-		t.Errorf("Expected forks count 42, got %s", repo.Owner.Login)
+		t.Errorf("Expected forks count 42, got %s", repo.OwnerName)
 	}
 	if repo.StarsCount != 100 {
-		t.Errorf("Expected stars count 100, got %s", repo.Owner.Login)
+		t.Errorf("Expected stars count 100, got %s", repo.OwnerName)
 	}
 	if repo.OpenIssuesCount != 5 {
-		t.Errorf("Expected open issues 5, got %s", repo.Owner.Login)
+		t.Errorf("Expected open issues 5, got %s", repo.OwnerName)
 	}
 	if repo.WatchersCount != 200 {
-		t.Errorf("Expected watchers count 200, got %s", repo.Owner.Login)
+		t.Errorf("Expected watchers count 200, got %s", repo.OwnerName)
 	}
 }
 
@@ -160,11 +164,11 @@ func TestGetCommitsSuccess(t *testing.T) {
 		t.Errorf("Expected 2 commits, got %d", len(commits))
 	} else {
 		// Check individual commits
-		if commits[0].Commit.Message != "First commit" {
-			t.Errorf("Expected first commit message 'First commit', got %s", commits[0].Commit.Message)
+		if commits[0].Message != "First commit" {
+			t.Errorf("Expected first commit message 'First commit', got %s", commits[0].Message)
 		}
-		if commits[1].Commit.Message != "Second commit" {
-			t.Errorf("Expected second commit message 'Second commit', got %s", commits[1].Commit.Message)
+		if commits[1].Message != "Second commit" {
+			t.Errorf("Expected second commit message 'Second commit', got %s", commits[1].Message)
 		}
 	}
 }

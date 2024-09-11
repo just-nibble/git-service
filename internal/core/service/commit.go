@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,19 +9,18 @@ import (
 	"time"
 
 	"github.com/just-nibble/git-service/internal/adapters/api"
-	"github.com/just-nibble/git-service/internal/adapters/db"
+	"github.com/just-nibble/git-service/internal/adapters/repository"
 	"github.com/just-nibble/git-service/internal/core/domain/entities"
-	"github.com/just-nibble/git-service/pkg/response"
 )
 
 type CommitService struct {
-	cs db.CommitStore
-	rs db.RepositoryStore
-	as db.AuthorStore
+	cs repository.CommitStore
+	rs repository.RepositoryStore
+	as repository.AuthorStore
 	gc *api.GitHubClient
 }
 
-func NewCommitService(cs db.CommitStore, rs db.RepositoryStore, as db.AuthorStore, gc *api.GitHubClient) *CommitService {
+func NewCommitService(cs repository.CommitStore, rs repository.RepositoryStore, as repository.AuthorStore, gc *api.GitHubClient) *CommitService {
 	return &CommitService{
 		cs: cs,
 		rs: rs,
@@ -31,26 +29,36 @@ func NewCommitService(cs db.CommitStore, rs db.RepositoryStore, as db.AuthorStor
 	}
 }
 
-func (s *CommitService) GetCommitsByRepo(w http.ResponseWriter, r *http.Request) {
-	repoName := r.URL.Query().Get("repo")
-	if repoName == "" {
-		http.Error(w, "Repository name is required", http.StatusBadRequest)
-		return
-	}
-
+func (s *CommitService) GetCommitsByRepo(repo string) ([]entities.Commit, error) {
 	// Fetch commits from the dbbase
-	commits, err := s.cs.GetCommitsByRepository(repoName)
+	cs, err := s.cs.GetCommitsByRepository(repo)
 	if err != nil {
-		http.Error(w, "Failed to retrieve commits", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
 
-	response.SuccessResponse(w, http.StatusOK, commits)
+	var commits []entities.Commit
+
+	for _, v := range cs {
+		commit := entities.Commit{
+			ID:         v.ID,
+			CommitHash: v.CommitHash,
+			Message:    v.Message,
+			Date:       v.Date,
+			Author: entities.Author{
+				ID:    v.Author.ID,
+				Name:  v.Author.Name,
+				Email: v.Author.Email,
+			},
+		}
+
+		commits = append(commits, commit)
+	}
+
+	return commits, nil
 }
 
 // FetchAndSaveLatestCommits fetches the latest commits from GitHub and saves them to the database
 func (s *CommitService) FetchAndSaveLatestCommits(ctx context.Context) {
-	page := 1
 	perPage := 100
 
 	// Fetch all repositories
@@ -61,19 +69,22 @@ func (s *CommitService) FetchAndSaveLatestCommits(ctx context.Context) {
 	}
 
 	for _, repo := range repositories {
-		err := s.fetchAndSaveCommitsForRepo(ctx, repo, page, perPage)
-		if err != nil {
-			log.Printf("Failed to process repository %s: %v", repo.Name, err)
+		if !repo.Index {
+			page := repo.LastPage
+			err := s.fetchAndSaveCommitsForRepo(ctx, repo, page, perPage)
+			if err != nil {
+				log.Printf("Failed to process repository %s: %v", repo.Name, err)
+			}
 		}
 	}
 }
 
 // fetchAndSaveCommitsForRepo handles fetching and saving commits for a single repository
-func (s *CommitService) fetchAndSaveCommitsForRepo(ctx context.Context, repo entities.Repository, page, perPage int) error {
+func (s *CommitService) fetchAndSaveCommitsForRepo(ctx context.Context, repo entities.RepositoryMeta, page, perPage int) error {
 	for {
 		// Fetch latest commits from GitHub with pagination and rate limiting checks
 		commits, err := s.gc.GetCommits(
-			repo.OwnerName, repo.Name, time.Now().Add(-time.Hour),
+			repo.OwnerName, repo.Name, repo.Since,
 			page, perPage,
 		)
 		if err != nil {
@@ -86,7 +97,7 @@ func (s *CommitService) fetchAndSaveCommitsForRepo(ctx context.Context, repo ent
 		for _, commit := range commits {
 			err := s.processCommit(ctx, repo.ID, commit)
 			if err != nil {
-				log.Printf("Failed to process commit %s for repository %s: %v", commit.SHA, repo.Name, err)
+				log.Printf("Failed to process commit %s for repository %s: %v", commit.CommitHash, repo.Name, err)
 			}
 		}
 
@@ -98,15 +109,32 @@ func (s *CommitService) fetchAndSaveCommitsForRepo(ctx context.Context, repo ent
 		page++
 	}
 
+	dbRepo := &repository.Repository{
+		ID:              repo.ID,
+		OwnerName:       repo.OwnerName,
+		Name:            repo.Name,
+		Description:     repo.Description,
+		Language:        repo.Language,
+		URL:             repo.URL,
+		ForksCount:      repo.ForksCount,
+		StarsCount:      repo.StarsCount,
+		OpenIssuesCount: repo.OpenIssuesCount,
+		WatchersCount:   repo.WatchersCount,
+		CreatedAt:       repo.CreatedAt,
+		UpdatedAt:       repo.UpdatedAt,
+		LastPage:        page,
+	}
+	s.rs.SaveRepository(dbRepo)
+
 	return nil
 }
 
 // processCommit handles the logic for checking the existence of a commit, retrieving/creating the author, and saving the commit
-func (s *CommitService) processCommit(ctx context.Context, repoID uint, commit api.Commit) error {
+func (s *CommitService) processCommit(ctx context.Context, repoID uint, commit entities.Commit) error {
 	// Check if the commit already exists
-	existingCommit, err := s.cs.GetCommitByHash(commit.SHA)
+	existingCommit, err := s.cs.GetCommitByHash(commit.CommitHash)
 	if err != nil && err.Error() != "commit not found" {
-		return fmt.Errorf("failed to check commit existence for hash %s: %w", commit.SHA, err)
+		return fmt.Errorf("failed to check commit existence for hash %s: %w", commit.CommitHash, err)
 	}
 
 	if existingCommit != nil {
@@ -114,84 +142,115 @@ func (s *CommitService) processCommit(ctx context.Context, repoID uint, commit a
 		return nil
 	}
 	// Retrieve or create the author
-	author, err := s.as.GetOrCreateAuthor(ctx, commit.Commit.Author.Name, commit.Commit.Author.Email)
+	author, err := s.as.GetOrCreateAuthor(ctx, commit.Author.Name, commit.Author.Email)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve or create author %s: %w", commit.Commit.Author.Name, err)
+		return fmt.Errorf("failed to retrieve or create author %s: %w", commit.Author.Name, err)
 	}
 
 	// Save the new commit
-	newCommit := &entities.Commit{
+	newCommit := &repository.Commit{
 		RepositoryID: repoID,
 		AuthorID:     author.ID,
-		CommitHash:   commit.SHA,
-		Message:      commit.Commit.Message,
-		Date:         commit.Commit.Author.Date,
+		CommitHash:   commit.CommitHash,
+		Message:      commit.Message,
+		Date:         commit.Date,
 	}
 
 	if err := s.cs.CreateCommit(newCommit); err != nil {
-		return fmt.Errorf("failed to save commit %s: %w", commit.SHA, err)
+		return fmt.Errorf("failed to save commit %s: %w", commit.CommitHash, err)
 	}
 
 	return nil
 }
 
 // IndexCommits fetches and saves commits for a repository starting from the given date.
-func (s *CommitService) IndexCommits(ctx context.Context, repo *entities.Repository) error {
-	if s.gc == nil {
-		return errors.New("GitHub client is not initialized")
-	}
-	page := 1
+func (s *CommitService) IndexCommits(ctx context.Context, repo *entities.RepositoryMeta) {
 	perPage := 100
-
 	for {
 		commits, err := s.gc.GetCommits(
 			repo.OwnerName, repo.Name, repo.Since,
-			page, perPage,
+			repo.LastPage, perPage,
 		)
 
 		if err != nil {
 			if err.Error() == "rate limited" {
+				if repo.Index {
+
+					dbRepo := &repository.Repository{
+						ID:              repo.ID,
+						OwnerName:       repo.OwnerName,
+						Name:            repo.Name,
+						Description:     repo.Description,
+						Language:        repo.Language,
+						URL:             repo.URL,
+						ForksCount:      repo.ForksCount,
+						StarsCount:      repo.StarsCount,
+						OpenIssuesCount: repo.OpenIssuesCount,
+						WatchersCount:   repo.WatchersCount,
+						CreatedAt:       repo.CreatedAt,
+						UpdatedAt:       repo.UpdatedAt,
+						LastPage:        repo.LastPage,
+						Index:           false,
+					}
+					s.rs.SaveRepository(dbRepo)
+				}
 				if err := s.ResumeIndexing(); err != nil {
-					return err
+					log.Printf("error indexing commit for repo %s  %s", repo.Name, err.Error())
 				}
 				// After resuming, refetch commits for the same page
 				continue
 			}
-			return err
+			log.Printf("error indexing commit for repo %s  %s", repo.Name, err.Error())
 		}
 
 		// Process fetched commits
 		for _, commit := range commits {
 			// Retrieve or create the author
-			author, err := s.as.GetOrCreateAuthor(ctx, commit.Commit.Author.Name, commit.Commit.Author.Email)
+			author, err := s.as.GetOrCreateAuthor(ctx, commit.Author.Name, commit.Author.Email)
 			if err != nil {
 				continue
 			}
 
 			// Save the new commit
-			newCommit := &entities.Commit{
+			newCommit := &repository.Commit{
 				RepositoryID: repo.ID,
 				AuthorID:     author.ID,
-				CommitHash:   commit.SHA,
-				Message:      commit.Commit.Message,
-				Date:         commit.Commit.Author.Date,
+				CommitHash:   commit.CommitHash,
+				Message:      commit.Message,
+				Date:         commit.Date,
+				LastPage:     repo.LastPage,
 			}
 
 			if err := s.cs.CreateCommit(newCommit); err != nil {
-				log.Printf("Failed to save commit %s: %v", commit.SHA, err)
+				log.Printf("Failed to save commit %s: %v", commit.CommitHash, err)
 			}
 
-			log.Printf("Saved commit #%s for %s", commit.SHA, repo.Name)
+			log.Printf("Saved commit #%s for %s", commit.CommitHash, repo.Name)
 		}
 
 		// Break if the commit list is smaller than `perPage`, meaning no more commits
 		if len(commits) < perPage {
 			break
 		}
-		page++
+		repo.LastPage++
 	}
 
-	return nil
+	dbRepo := &repository.Repository{
+		ID:              repo.ID,
+		OwnerName:       repo.OwnerName,
+		Name:            repo.Name,
+		Description:     repo.Description,
+		Language:        repo.Language,
+		URL:             repo.URL,
+		ForksCount:      repo.ForksCount,
+		StarsCount:      repo.StarsCount,
+		OpenIssuesCount: repo.OpenIssuesCount,
+		WatchersCount:   repo.WatchersCount,
+		CreatedAt:       repo.CreatedAt,
+		UpdatedAt:       repo.UpdatedAt,
+		LastPage:        repo.LastPage,
+	}
+	s.rs.SaveRepository(dbRepo)
 }
 
 func (s *CommitService) ResumeIndexing() error {

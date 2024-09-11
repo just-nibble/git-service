@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/just-nibble/git-service/internal/core/domain/entities"
+	"github.com/just-nibble/git-service/internal/adapters/repository"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -26,7 +26,7 @@ func InitDB() *gorm.DB {
 	}
 
 	// Automatically migrate the schema
-	if err := db.AutoMigrate(&entities.Repository{}, &entities.Commit{}, &entities.Author{}); err != nil {
+	if err := db.AutoMigrate(&repository.Repository{}, &repository.Commit{}, &repository.Author{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 

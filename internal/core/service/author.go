@@ -1,48 +1,48 @@
 package service
 
 import (
-	"net/http"
-	"strconv"
+	"context"
 
 	"github.com/just-nibble/git-service/internal/adapters/api"
-	"github.com/just-nibble/git-service/internal/adapters/db"
-	"github.com/just-nibble/git-service/pkg/response"
+	"github.com/just-nibble/git-service/internal/adapters/repository"
+	"github.com/just-nibble/git-service/internal/core/domain/entities"
 )
 
-type AuthorService struct {
-	as           db.AuthorStore
+type AuthorService interface {
+	GetTopAuthors(ctx context.Context, limit int) ([]entities.Author, error)
+}
+
+type authorService struct {
+	as           repository.AuthorStore
 	githubClient *api.GitHubClient
 }
 
-func NewAuthorService(as db.AuthorStore, gc *api.GitHubClient) *AuthorService {
-	return &AuthorService{
+func NewAuthorService(as repository.AuthorStore, gc *api.GitHubClient) *authorService {
+	return &authorService{
 		as:           as,
 		githubClient: gc,
 	}
 }
 
-func (s *AuthorService) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
-	repoName := r.URL.Query().Get("repo")
-	if repoName == "" {
-		http.Error(w, "Repository name is required", http.StatusBadRequest)
-		return
-	}
+func (s *authorService) GetTopAuthors(ctx context.Context, limit int) ([]entities.Author, error) {
 
-	ctx := r.Context()
-
-	nStr := r.URL.Query().Get("n")
-	n, err := strconv.Atoi(nStr)
-	if err != nil || n <= 0 {
-		http.Error(w, "Invalid number of authors", http.StatusBadRequest)
-		return
-	}
-
-	// Fetch top commit authors from the dbbase
-	authors, err := s.as.GetTopAuthors(ctx, n)
+	as, err := s.as.GetTopAuthors(ctx, limit)
 	if err != nil {
-		http.Error(w, "Failed to retrieve authors", http.StatusInternalServerError)
-		return
+		return []entities.Author{}, nil
 	}
 
-	response.SuccessResponse(w, http.StatusOK, authors)
+	var authors []entities.Author
+
+	for _, v := range as {
+		author := entities.Author{
+			ID:          v.ID,
+			Name:        v.Name,
+			Email:       v.Name,
+			CommitCount: v.CommitCount,
+		}
+
+		authors = append(authors, author)
+	}
+
+	return authors, nil
 }

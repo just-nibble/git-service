@@ -1,17 +1,27 @@
-package db
+package repository
 
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/just-nibble/git-service/internal/core/domain/entities"
 	"gorm.io/gorm"
 )
 
+type Author struct {
+	ID          uint   `gorm:"primaryKey"`
+	Name        string `gorm:"index"`
+	Email       string `gorm:"index"`
+	CommitCount int
+	Commits     []Commit `gorm:"foreignKey:AuthorID"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 // AuthorStore defines an interface for database operations
 type AuthorStore interface {
-	GetTopAuthors(ctx context.Context, limit int) ([]entities.Author, error)
-	GetOrCreateAuthor(ctx context.Context, name, email string) (*entities.Author, error)
+	GetTopAuthors(ctx context.Context, limit int) ([]Author, error)
+	GetOrCreateAuthor(ctx context.Context, name, email string) (*Author, error)
 }
 
 // GormAuthorStore is a GORM-based implementation of AuthorStore
@@ -24,8 +34,8 @@ func NewGormAuthorStore(db *gorm.DB) *GormAuthorStore {
 	return &GormAuthorStore{db: db}
 }
 
-func (s *GormAuthorStore) GetTopAuthors(ctx context.Context, limit int) ([]entities.Author, error) {
-	var authors []entities.Author
+func (s *GormAuthorStore) GetTopAuthors(ctx context.Context, limit int) ([]Author, error) {
+	var authors []Author
 	err := s.db.WithContext(ctx).
 		Table("authors").
 		Select("authors.id, authors.name, authors.email, COUNT(commits.id) as commit_count").
@@ -39,8 +49,8 @@ func (s *GormAuthorStore) GetTopAuthors(ctx context.Context, limit int) ([]entit
 }
 
 // GetOrCreateAuthor retrieves an existing author by name and email, or creates a new one if it does not exist.
-func (s *GormAuthorStore) GetOrCreateAuthor(ctx context.Context, name, email string) (*entities.Author, error) {
-	var author entities.Author
+func (s *GormAuthorStore) GetOrCreateAuthor(ctx context.Context, name, email string) (*Author, error) {
+	var author Author
 	err := s.db.Where("name = ? AND email = ?", name, email).Limit(1).Find(&author).Error
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve author: %w", err)
@@ -48,7 +58,7 @@ func (s *GormAuthorStore) GetOrCreateAuthor(ctx context.Context, name, email str
 
 	if author.ID == 0 {
 		// Author not found, create a new one
-		author = entities.Author{
+		author = Author{
 			Name:  name,
 			Email: email,
 		}

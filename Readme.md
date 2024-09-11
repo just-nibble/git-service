@@ -61,7 +61,7 @@ curl --request POST \
   --header 'Content-Type: application/json' \
   --data '{
   "owner": "zostera",
-  "repo": "django-bootstrap4",
+  "name": "django-bootstrap4",
   "since": "2020-01-02"
 }'
 ```
@@ -87,7 +87,7 @@ This action retrieves the top N commit authors, ranked by the number of commits 
 #### Example `curl` Request
 
 ```bash
-curl -X GET "http://localhost:8080/authors/top?n=5&repo=chromium" -H "accept: application/json"
+curl -X GET "http://localhost:8080/authors/top?n=5" -H "accept: application/json"
 ```
 
 #### Response Example
@@ -127,7 +127,7 @@ This action retrieves all the commits for a given repository, identified by its 
 #### Example `curl` Request
 
 ```bash
-curl -X GET "http://localhost:8080/commits/?repo=chromium" -H "accept: application/json"
+curl -X GET "http://localhost:8080/commits?repo=chromium" -H "accept: application/json"
 ```
 
 #### Response Example
