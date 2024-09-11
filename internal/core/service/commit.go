@@ -162,16 +162,6 @@ func (s *CommitService) IndexCommits(ctx context.Context, repo *entities.Reposit
 
 		// Process fetched commits
 		for _, commit := range commits {
-			// Check if the commit already exists
-			existingCommit, err := s.cs.GetCommitByHash(commit.SHA)
-			if err != nil && err.Error() != "commit not found" {
-				continue
-			}
-
-			if existingCommit.ID > 0 {
-				continue // Commit already exists
-			}
-
 			// Retrieve or create the author
 			author, err := s.as.GetOrCreateAuthor(ctx, commit.Commit.Author.Name, commit.Commit.Author.Email)
 			if err != nil {
