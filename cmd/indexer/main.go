@@ -44,13 +44,13 @@ func main() {
 
 	dB := dbClient.GetDB()
 
-	repoStore := repository.NewGormRepositoryStore(dB)
-	authorStore := repository.NewGormAuthorStore(dB)
-	commitStore := repository.NewGormCommitStore(dB)
+	repoRepository := repository.NewGormRRepositoryMetaRepository(dB)
+	authorRepository := repository.NewGormAuthorRepository(dB)
+	commitRepository := repository.NewGormCommitRepository(dB)
 
-	commitUsecase := usecases.NewGitCommitUsecase(commitStore, repoStore)
-	gitRepoUsecase := usecases.NewGitRepositoryUsecase(repoStore, commitStore, authorStore, githubClient, *config, *log)
-	authorUsecase := usecases.NewAuthorUseCase(authorStore)
+	commitUsecase := usecases.NewGitCommitUsecase(commitRepository, repoRepository)
+	gitRepoUsecase := usecases.NewGitRepositoryUsecase(repoRepository, commitRepository, authorRepository, githubClient, *config, *log)
+	authorUsecase := usecases.NewAuthorUseCase(authorRepository)
 
 	repoHandler := handlers.NewRepositoryHandler(gitRepoUsecase)
 	authorHandler := handlers.NewAuthorHandler(authorUsecase)

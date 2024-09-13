@@ -60,7 +60,31 @@ func (rh RepositoryHandler) FetchAllRepositories(w http.ResponseWriter, r *http.
 		response.SuccessResponse(w, http.StatusOK, "no repository indexed yet")
 		return
 	}
-	response.SuccessResponse(w, http.StatusOK, repos)
+
+	var repoResponse []dtos.RepositoryMeta
+
+	for _, v := range repos {
+		repo := dtos.RepositoryMeta{
+			Name:        v.Name,
+			URL:         v.URL,
+			Description: v.Description,
+			Language:    v.Language,
+			Owner: struct {
+				Login string "json:\"login\""
+			}{
+				Login: v.OwnerName,
+			},
+			ForksCount:      v.ForksCount,
+			StarsCount:      v.StarsCount,
+			OpenIssuesCount: v.OpenIssuesCount,
+			WatchersCount:   v.WatchersCount,
+			CreatedAt:       v.CreatedAt,
+			UpdatedAt:       v.UpdatedAt,
+		}
+		repoResponse = append(repoResponse, repo)
+	}
+
+	response.SuccessResponse(w, http.StatusOK, repoResponse)
 }
 
 func (rh RepositoryHandler) FetchRepository(w http.ResponseWriter, r *http.Request) {
@@ -90,5 +114,22 @@ func (rh RepositoryHandler) FetchRepository(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.SuccessResponse(w, http.StatusOK, repo)
+	repoReponse := dtos.RepositoryMeta{
+		Name:        repo.Name,
+		URL:         repo.URL,
+		Description: repo.Description,
+		Language:    repo.Language,
+		Owner: struct {
+			Login string "json:\"login\""
+		}{
+			Login: repo.OwnerName,
+		},
+		ForksCount:      repo.ForksCount,
+		StarsCount:      repo.StarsCount,
+		OpenIssuesCount: repo.OpenIssuesCount,
+		WatchersCount:   repo.WatchersCount,
+		CreatedAt:       repo.CreatedAt,
+		UpdatedAt:       repo.UpdatedAt,
+	}
+	response.SuccessResponse(w, http.StatusOK, repoReponse)
 }

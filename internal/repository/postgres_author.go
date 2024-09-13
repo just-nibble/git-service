@@ -6,17 +6,17 @@ import (
 	"gorm.io/gorm"
 )
 
-// GormAuthorStore is a GORM-based implementation of AuthorStore
-type GormAuthorStore struct {
+// GormAuthorRepository is a GORM-based implementation of AuthorRepository
+type GormAuthorRepository struct {
 	db *gorm.DB
 }
 
-// NewGormAuthorStore initializes a new GormAuthorStore
-func NewGormAuthorStore(db *gorm.DB) AuthorStore {
-	return &GormAuthorStore{db: db}
+// NewGormAuthorRepository initializes a new GormAuthorRepository
+func NewGormAuthorRepository(db *gorm.DB) AuthorRepository {
+	return &GormAuthorRepository{db: db}
 }
 
-func (s *GormAuthorStore) GetTopAuthors(ctx context.Context, repoName string, limit int) ([]Author, error) {
+func (s *GormAuthorRepository) GetTopAuthors(ctx context.Context, repoName string, limit int) ([]Author, error) {
 	var authors []Author
 	err := s.db.WithContext(ctx).
 		Table("author").

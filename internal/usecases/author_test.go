@@ -13,15 +13,15 @@ import (
 // TestAuthorUseCase_GetTopAuthors_Success tests the success scenario for GetTopAuthors
 func TestAuthorUseCase_GetTopAuthors(t *testing.T) {
 	// Arrange
-	mockAuthorStore := new(mocks.AuthorStore)
+	mockAuthorRepository := new(mocks.AuthorRepository)
 	mockAuthors := []repository.Author{
 		{ID: 1, Name: "John Doe", CommitCount: 10},
 		{ID: 2, Name: "Jane Smith", CommitCount: 5},
 	}
 
-	mockAuthorStore.On("GetTopAuthors", mock.Anything, "repo1", 2).Return(mockAuthors, nil)
+	mockAuthorRepository.On("GetTopAuthors", mock.Anything, "repo1", 2).Return(mockAuthors, nil)
 
-	uc := NewAuthorUseCase(mockAuthorStore)
+	uc := NewAuthorUseCase(mockAuthorRepository)
 
 	// Act
 	authors, err := uc.GetTopAuthors(context.TODO(), "repo1", 2)
@@ -31,5 +31,5 @@ func TestAuthorUseCase_GetTopAuthors(t *testing.T) {
 	assert.Equal(t, 2, len(authors))
 	assert.Equal(t, "John Doe", authors[0].Name)
 	assert.Equal(t, "Jane Smith", authors[1].Name)
-	mockAuthorStore.AssertExpectations(t)
+	mockAuthorRepository.AssertExpectations(t)
 }

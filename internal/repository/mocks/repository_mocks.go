@@ -7,36 +7,36 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-// RepositoryStore mock
-type RepositoryStore struct {
+// RepositoryRepository mock
+type RepositoryRepository struct {
 	mock.Mock
 }
 
-func (m *RepositoryStore) RepoMetadataByName(ctx context.Context, repoName string) (*domain.RepositoryMeta, error) {
+func (m *RepositoryRepository) RepoMetadataByName(ctx context.Context, repoName string) (*domain.RepositoryMeta, error) {
 	args := m.Called(ctx, repoName)
 	return args.Get(0).(*domain.RepositoryMeta), args.Error(1)
 }
 
-func (m *RepositoryStore) SaveRepoMetadata(ctx context.Context, repository domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
+func (m *RepositoryRepository) SaveRepoMetadata(ctx context.Context, repository domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
 	args := m.Called(ctx, repository)
 	return args.Get(0).(*domain.RepositoryMeta), args.Error(1)
 }
-func (m *RepositoryStore) UpdateRepoMetadata(ctx context.Context, repo domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
+func (m *RepositoryRepository) UpdateRepoMetadata(ctx context.Context, repo domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
 	args := m.Called(ctx, repo)
 	return args.Get(0).(*domain.RepositoryMeta), args.Error(1)
 }
 
-func (m *RepositoryStore) RepoMetadataByPublicId(ctx context.Context, publicId string) (*domain.RepositoryMeta, error) {
+func (m *RepositoryRepository) RepoMetadataByPublicId(ctx context.Context, publicId string) (*domain.RepositoryMeta, error) {
 	args := m.Called(ctx, publicId)
 	return args.Get(0).(*domain.RepositoryMeta), args.Error(1)
 }
 
-func (m *RepositoryStore) AllRepoMetadata(ctx context.Context) ([]domain.RepositoryMeta, error) {
+func (m *RepositoryRepository) AllRepoMetadata(ctx context.Context) ([]domain.RepositoryMeta, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]domain.RepositoryMeta), args.Error(1)
 }
 
-func (m *RepositoryStore) UpdateFetchingStateForAllRepos(ctx context.Context, isFetching bool) error {
+func (m *RepositoryRepository) UpdateFetchingStateForAllRepos(ctx context.Context, isFetching bool) error {
 	args := m.Called(ctx, isFetching)
 	return args.Error(1)
 }

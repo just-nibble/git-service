@@ -3,34 +3,34 @@ package usecases
 import (
 	"context"
 
-	"github.com/just-nibble/git-service/internal/http/dtos"
+	"github.com/just-nibble/git-service/internal/domain"
 	"github.com/just-nibble/git-service/internal/repository"
 )
 
 type GitCommitUsecase interface {
-	GetAllCommitsByRepository(ctx context.Context, repoName string, query dtos.APIPagingDto) (*dtos.MultiCommitsResponse, error)
+	GetAllCommitsByRepository(ctx context.Context, repoName string, query domain.APIPaging) ([]domain.Commit, error)
 }
 
 type gitCommitUsecase struct {
-	commitStore     repository.CommitStore
-	repositoryStore repository.RepositoryStore
+	commitRepository         repository.CommitRepository
+	repositoryMetaRepository repository.RepositoryMetaRepository
 }
 
-func NewGitCommitUsecase(commitStore repository.CommitStore, repositoryStore repository.RepositoryStore) GitCommitUsecase {
+func NewGitCommitUsecase(commitRepository repository.CommitRepository, repositoryRepository repository.RepositoryMetaRepository) GitCommitUsecase {
 	return &gitCommitUsecase{
-		commitStore:     commitStore,
-		repositoryStore: repositoryStore,
+		commitRepository:         commitRepository,
+		repositoryMetaRepository: repositoryRepository,
 	}
 }
 
-func (u *gitCommitUsecase) GetAllCommitsByRepository(ctx context.Context, repoName string, query dtos.APIPagingDto) (*dtos.MultiCommitsResponse, error) {
+func (u *gitCommitUsecase) GetAllCommitsByRepository(ctx context.Context, repoName string, query domain.APIPaging) ([]domain.Commit, error) {
 	// Fetch commits from the dbbase
-	repoMetaData, err := u.repositoryStore.RepoMetadataByName(ctx, repoName)
+	repoMetaData, err := u.repositoryMetaRepository.RepoMetadataByName(ctx, repoName)
 	if err != nil {
 		return nil, err
 	}
 
-	commitsResp, err := u.commitStore.GetCommitsByRepository(ctx, *repoMetaData, query)
+	commitsResp, err := u.commitRepository.GetCommitsByRepository(ctx, *repoMetaData, query)
 	if err != nil {
 		return nil, err
 	}

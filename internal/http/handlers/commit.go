@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/just-nibble/git-service/internal/domain"
 	"github.com/just-nibble/git-service/internal/http/dtos"
 	"github.com/just-nibble/git-service/internal/usecases"
 	"github.com/just-nibble/git-service/pkg/response"
@@ -51,12 +52,37 @@ func (h *CommitHandler) GetCommitsByRepoName(w http.ResponseWriter, r *http.Requ
 
 	query := getPagingInfo(r)
 
+	domainQuery := domain.APIPaging{
+		Limit:     query.Limit,
+		Page:      query.Page,
+		Sort:      query.Sort,
+		Direction: query.Direction,
+	}
+
 	// Fetch commits from the dbbase
-	commits, err := h.gitCommitUseCase.GetAllCommitsByRepository(r.Context(), repoName, query)
+	commits, err := h.gitCommitUseCase.GetAllCommitsByRepository(r.Context(), repoName, domainQuery)
 	if err != nil {
 		http.Error(w, "Failed to retrieve commits", http.StatusInternalServerError)
 		return
 	}
 
-	response.SuccessResponse(w, http.StatusOK, commits)
+	var commitsResponse []dtos.CommitReponse
+
+	for _, v := range commits {
+		commit := dtos.CommitReponse{
+			ID:      v.ID,
+			Hash:    v.Hash,
+			Message: v.Message,
+			Date:    v.Date,
+			Author: dtos.Author{
+				Name:  v.Author.Name,
+				Email: v.Author.Email,
+			},
+			AuthorID: v.AuthorID,
+			RepoID:   v.RepoID,
+		}
+		commitsResponse = append(commitsResponse, commit)
+	}
+
+	response.SuccessResponse(w, http.StatusOK, commitsResponse)
 }

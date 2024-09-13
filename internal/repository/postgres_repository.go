@@ -8,19 +8,19 @@ import (
 	"gorm.io/gorm"
 )
 
-// GormRepositoryStore is a GORM-based implementation of RepositoryStore
-type GormRepositoryStore struct {
+// GormRepositoryRepository is a GORM-based implementation of RepositoryRepository
+type GormRepositoryMetaRepository struct {
 	db *gorm.DB
 }
 
-// NewGormRepositoryStore initializes a new GormRepositoryStore
-func NewGormRepositoryStore(db *gorm.DB) RepositoryStore {
-	return &GormRepositoryStore{db: db}
+// NewGormRepositoryRepository initializes a new GormRepositoryRepository
+func NewGormRRepositoryMetaRepository(db *gorm.DB) RepositoryMetaRepository {
+	return &GormRepositoryMetaRepository{db: db}
 }
 
-// Implement the methods for RepositoryStore interface
+// Implement the methods for RepositoryMetaRepository interface
 
-func (r *GormRepositoryStore) SaveRepoMetadata(ctx context.Context, repo domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
+func (r *GormRepositoryMetaRepository) SaveRepoMetadata(ctx context.Context, repo domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
 	dbRepository := ToGormRepo(&repo)
 
 	err := r.db.WithContext(ctx).Create(dbRepository).Error
@@ -30,7 +30,7 @@ func (r *GormRepositoryStore) SaveRepoMetadata(ctx context.Context, repo domain.
 	return dbRepository.ToDomain(), err
 }
 
-func (r *GormRepositoryStore) RepoMetadataByPublicId(ctx context.Context, publicId string) (*domain.RepositoryMeta, error) {
+func (r *GormRepositoryMetaRepository) RepoMetadataByPublicId(ctx context.Context, publicId string) (*domain.RepositoryMeta, error) {
 	if ctx.Err() == context.Canceled {
 		return nil, errcodes.ErrContextCancelled
 	}
@@ -44,7 +44,7 @@ func (r *GormRepositoryStore) RepoMetadataByPublicId(ctx context.Context, public
 	return repo.ToDomain(), err
 }
 
-func (r *GormRepositoryStore) RepoMetadataByName(ctx context.Context, name string) (*domain.RepositoryMeta, error) {
+func (r *GormRepositoryMetaRepository) RepoMetadataByName(ctx context.Context, name string) (*domain.RepositoryMeta, error) {
 	if ctx.Err() == context.Canceled {
 		return nil, errcodes.ErrContextCancelled
 	}
@@ -56,7 +56,7 @@ func (r *GormRepositoryStore) RepoMetadataByName(ctx context.Context, name strin
 	return repo.ToDomain(), err
 }
 
-func (r *GormRepositoryStore) AllRepoMetadata(ctx context.Context) ([]domain.RepositoryMeta, error) {
+func (r *GormRepositoryMetaRepository) AllRepoMetadata(ctx context.Context) ([]domain.RepositoryMeta, error) {
 	var dbRepositories []Repository
 
 	err := r.db.WithContext(ctx).Find(&dbRepositories).Error
@@ -73,7 +73,7 @@ func (r *GormRepositoryStore) AllRepoMetadata(ctx context.Context) ([]domain.Rep
 	return repoMetaDataResponse, err
 }
 
-func (r *GormRepositoryStore) UpdateRepoMetadata(ctx context.Context, repo domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
+func (r *GormRepositoryMetaRepository) UpdateRepoMetadata(ctx context.Context, repo domain.RepositoryMeta) (*domain.RepositoryMeta, error) {
 	if ctx.Err() == context.Canceled {
 		return nil, errcodes.ErrContextCancelled
 	}
@@ -87,7 +87,7 @@ func (r *GormRepositoryStore) UpdateRepoMetadata(ctx context.Context, repo domai
 	return dbRepo.ToDomain(), nil
 }
 
-func (r *GormRepositoryStore) UpdateFetchingStateForAllRepos(ctx context.Context, isFetching bool) error {
+func (r *GormRepositoryMetaRepository) UpdateFetchingStateForAllRepos(ctx context.Context, isFetching bool) error {
 	return r.db.WithContext(ctx).Model(&Repository{}).
 		Where("index = ?", true).
 		Update("index", isFetching).

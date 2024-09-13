@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/just-nibble/git-service/internal/http/dtos"
 	"github.com/just-nibble/git-service/internal/usecases"
 	"github.com/just-nibble/git-service/pkg/response"
 )
@@ -47,5 +48,16 @@ func (h *AuthorHandler) GetTopAuthors(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.SuccessResponse(w, http.StatusOK, authors)
+	var authorResponse []dtos.Author
+
+	for _, v := range authors {
+		author := dtos.Author{
+			Name:        v.Name,
+			Email:       v.Email,
+			CommitCount: v.CommitCount,
+		}
+		authorResponse = append(authorResponse, author)
+	}
+
+	response.SuccessResponse(w, http.StatusOK, authorResponse)
 }

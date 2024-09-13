@@ -3,35 +3,35 @@ package usecases
 import (
 	"context"
 
-	"github.com/just-nibble/git-service/internal/http/dtos"
+	"github.com/just-nibble/git-service/internal/domain"
 	"github.com/just-nibble/git-service/internal/repository"
 )
 
 type AuthorUseCase interface {
-	GetTopAuthors(ctx context.Context, repoName string, limit int) ([]dtos.Author, error)
+	GetTopAuthors(ctx context.Context, repoName string, limit int) ([]domain.Author, error)
 }
 
 type authorUseCase struct {
-	authorStore repository.AuthorStore
+	authorRepository repository.AuthorRepository
 }
 
-func NewAuthorUseCase(authorStore repository.AuthorStore) AuthorUseCase {
+func NewAuthorUseCase(authorRepository repository.AuthorRepository) AuthorUseCase {
 	return &authorUseCase{
-		authorStore: authorStore,
+		authorRepository: authorRepository,
 	}
 }
 
-func (s *authorUseCase) GetTopAuthors(ctx context.Context, repoName string, limit int) ([]dtos.Author, error) {
+func (s *authorUseCase) GetTopAuthors(ctx context.Context, repoName string, limit int) ([]domain.Author, error) {
 
-	as, err := s.authorStore.GetTopAuthors(ctx, repoName, limit)
+	as, err := s.authorRepository.GetTopAuthors(ctx, repoName, limit)
 	if err != nil {
-		return []dtos.Author{}, nil
+		return []domain.Author{}, nil
 	}
 
-	var authors []dtos.Author
+	var authors []domain.Author
 
 	for _, v := range as {
-		author := dtos.Author{
+		author := domain.Author{
 			Name:        v.Name,
 			Email:       v.Name,
 			CommitCount: v.CommitCount,

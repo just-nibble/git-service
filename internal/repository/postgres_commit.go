@@ -6,23 +6,22 @@ import (
 	"strings"
 
 	"github.com/just-nibble/git-service/internal/domain"
-	"github.com/just-nibble/git-service/internal/http/dtos"
 	"github.com/just-nibble/git-service/pkg/errcodes"
 	"github.com/rs/zerolog/log"
 	"gorm.io/gorm"
 )
 
-// GormCommitStore is a GORM-based implementation of CommitStore
-type GormCommitStore struct {
+// GormCommitRepository is a GORM-based implementation of CommitRepository
+type GormCommitRepository struct {
 	db *gorm.DB
 }
 
-// NewGormCommitStore initializes a new GormCommitStore
-func NewGormCommitStore(db *gorm.DB) CommitStore {
-	return &GormCommitStore{db: db}
+// NewGormCommitRepository initializes a new GormCommitRepository
+func NewGormCommitRepository(db *gorm.DB) CommitRepository {
+	return &GormCommitRepository{db: db}
 }
 
-func (s *GormCommitStore) GetCommitByHash(ctx context.Context, hash string) (*domain.Commit, error) {
+func (s *GormCommitRepository) GetCommitByHash(ctx context.Context, hash string) (*domain.Commit, error) {
 	if ctx.Err() == context.Canceled {
 		return nil, errcodes.ErrContextCancelled
 	}
@@ -36,7 +35,7 @@ func (s *GormCommitStore) GetCommitByHash(ctx context.Context, hash string) (*do
 }
 
 // SaveCommit stores a repository commit into the database
-func (s *GormCommitStore) SaveCommit(ctx context.Context, commit domain.Commit) (*domain.Commit, error) {
+func (s *GormCommitRepository) SaveCommit(ctx context.Context, commit domain.Commit) (*domain.Commit, error) {
 	if ctx.Err() == context.Canceled {
 		return nil, errcodes.ErrContextCancelled
 	}
@@ -64,7 +63,7 @@ func (s *GormCommitStore) SaveCommit(ctx context.Context, commit domain.Commit) 
 }
 
 // GetAllCommitsByRepositoryName fetches all stores commits by repository name
-func (s *GormCommitStore) GetCommitsByRepository(ctx context.Context, repo domain.RepositoryMeta, query dtos.APIPagingDto) (*dtos.MultiCommitsResponse, error) {
+func (s *GormCommitRepository) GetCommitsByRepository(ctx context.Context, repo domain.RepositoryMeta, query domain.APIPaging) ([]domain.Commit, error) {
 	var dbCommits []Commit
 
 	var count, queryCount int64
@@ -89,39 +88,24 @@ func (s *GormCommitStore) GetCommitsByRepository(ctx context.Context, repo domai
 	pagingInfo := getPagingInfo(queryInfo, int(count))
 	pagingInfo.Count = len(dbCommits)
 
-	return &dtos.MultiCommitsResponse{
-		Commits:  commitResponse(dbCommits),
-		PageInfo: pagingInfo,
-	}, nil
+	var commits []domain.Commit
 
-}
-
-func commitResponse(commits []Commit) []dtos.Commit {
-	if len(commits) == 0 {
-		return nil
-	}
-
-	commitsResponse := make([]dtos.Commit, 0, len(commits))
-
-	for _, c := range commits {
-		cr := dtos.Commit{
-			SHA: c.CommitHash,
-			Commit: struct {
-				Message string      "json:\"message\""
-				Author  dtos.Author "json:\"author\""
-				URL     string      "json:\"url\""
-			}{
-				Message: c.Message,
-				Author: dtos.Author{
-					Name:  c.Author.Name,
-					Email: c.Author.Email,
-					Date:  c.Date,
-				},
+	for _, commit := range dbCommits {
+		v := domain.Commit{
+			ID:      commit.ID,
+			Hash:    commit.CommitHash,
+			Message: commit.Message,
+			Author: domain.Author{
+				ID:          commit.AuthorID,
+				Name:        commit.Author.Name,
+				Email:       commit.Author.Email,
+				CommitCount: commit.Author.CommitCount,
 			},
+			RepoID: commit.RepositoryID,
 		}
-
-		commitsResponse = append(commitsResponse, cr)
+		commits = append(commits, v)
 	}
 
-	return commitsResponse
+	return commits, nil
+
 }
