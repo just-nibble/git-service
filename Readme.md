@@ -59,9 +59,8 @@ This action gets repo data from github saves to the database and starts indexing
 curl --request POST \
   --url http://localhost:8080/repositories \
   --header 'Content-Type: application/json' \
-  --data '{
-  "name": "Mindinventory/Golang-Project-Structure",
-}'
+  --header 'User-Agent: insomnia/9.3.3' \
+  --data '{"name": "swaggo/swag"}'
 ```
 
 #### Response Example

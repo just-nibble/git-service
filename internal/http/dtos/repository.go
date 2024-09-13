@@ -3,7 +3,7 @@ package dtos
 import "time"
 
 type RepositoryInput struct {
-	Name string `json:"name" validate:"required"`
+	Name string `json:"name"`
 }
 
 // Repository represents the JSON structure of a GitHub repository

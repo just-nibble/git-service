@@ -25,7 +25,12 @@ func (rh RepositoryHandler) AddRepository(w http.ResponseWriter, r *http.Request
 	var req dtos.RepositoryInput
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		response.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Name == "" {
+		response.ErrorResponse(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
