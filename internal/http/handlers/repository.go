@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,7 +35,7 @@ func (rh RepositoryHandler) AddRepository(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ctx := r.Context()
+	ctx := context.Background()
 
 	_, err := rh.gitRepositoryUsecase.StartIndexing(ctx, req)
 	if err != nil {
