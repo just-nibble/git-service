@@ -60,7 +60,7 @@ curl --request POST \
   --url http://localhost:8080/repositories \
   --header 'Content-Type: application/json' \
   --data '{
-  "owner": "zostera",
+  "name": "Mindinventory/Golang-Project-Structure",
 }'
 ```
 
