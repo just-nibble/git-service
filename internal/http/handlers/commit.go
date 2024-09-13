@@ -78,8 +78,6 @@ func (h *CommitHandler) GetCommitsByRepoName(w http.ResponseWriter, r *http.Requ
 				Name:  v.Author.Name,
 				Email: v.Author.Email,
 			},
-			AuthorID: v.AuthorID,
-			RepoID:   v.RepoID,
 		}
 		commitsResponse = append(commitsResponse, commit)
 	}

@@ -44,7 +44,7 @@ func main() {
 
 	dB := dbClient.GetDB()
 
-	repoRepository := repository.NewGormRRepositoryMetaRepository(dB)
+	repoRepository := repository.NewGormRepositoryMetaRepository(dB)
 	authorRepository := repository.NewGormAuthorRepository(dB)
 	commitRepository := repository.NewGormCommitRepository(dB)
 

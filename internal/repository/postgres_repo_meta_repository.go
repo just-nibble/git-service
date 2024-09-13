@@ -14,7 +14,7 @@ type GormRepositoryMetaRepository struct {
 }
 
 // NewGormRepositoryRepository initializes a new GormRepositoryRepository
-func NewGormRRepositoryMetaRepository(db *gorm.DB) RepositoryMetaRepository {
+func NewGormRepositoryMetaRepository(db *gorm.DB) RepositoryMetaRepository {
 	return &GormRepositoryMetaRepository{db: db}
 }
 
