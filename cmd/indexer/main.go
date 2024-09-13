@@ -2,54 +2,59 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
-	"github.com/just-nibble/git-service/internal/adapters/api"
-	"github.com/just-nibble/git-service/internal/adapters/http/dtos/routes"
-	"github.com/just-nibble/git-service/internal/adapters/http/handlers"
-	"github.com/just-nibble/git-service/internal/adapters/repository"
-	"github.com/just-nibble/git-service/internal/adapters/storage"
-	"github.com/just-nibble/git-service/internal/adapters/validators"
-	"github.com/just-nibble/git-service/internal/core/service"
+	"github.com/just-nibble/git-service/internal/http/dtos"
+	"github.com/just-nibble/git-service/internal/http/handlers"
+	"github.com/just-nibble/git-service/internal/http/routes"
+	"github.com/just-nibble/git-service/internal/repository"
+	"github.com/just-nibble/git-service/internal/usecases"
 	"github.com/just-nibble/git-service/pkg/config"
+	"github.com/just-nibble/git-service/pkg/database"
+	"github.com/just-nibble/git-service/pkg/errcodes"
+	"github.com/just-nibble/git-service/pkg/git"
+	"github.com/just-nibble/git-service/pkg/log"
 )
 
-func getenv(key, fallback string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		return fallback
-	}
-	return value
-}
-
 func main() {
-	// Initialize the database
-	dB := storage.InitDB()
-	// Initialize the GitHub client
-	gc := api.NewGitHubClient(getenv("GITHUB_TOKEN", ""))
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
 
-	// Create the repository store
+	log := log.NewLogger()
+	config, err := config.LoadConfig(*log)
+	if err != nil {
+		log.Error.Printf("failed to load config %s", err.Error())
+	}
+
+	// Create a new PostgresDatabase instance
+	dbClient := database.NewPostgresDatabase(config.DSN, 10, 5, 3*time.Hour)
+	err = dbClient.ConnectDB(ctx)
+	if err != nil {
+		log.Error.Printf("failed to establish postgres database connection: %s", err.Error())
+	}
+
+	// Run database migrations
+	if err := dbClient.Migrate(ctx); err != nil {
+		log.Error.Printf("failed to run database migrations: %s", err.Error())
+	}
+
+	githubClient := git.NewGitHubClient(config.GitClientBaseURL, config.GitClientToken, config.MonitorInterval)
+
+	dB := dbClient.GetDB()
+
 	repoStore := repository.NewGormRepositoryStore(dB)
-
 	authorStore := repository.NewGormAuthorStore(dB)
-	authorService := service.NewAuthorService(authorStore, gc)
-
 	commitStore := repository.NewGormCommitStore(dB)
-	commitService := service.NewCommitService(
-		commitStore, repoStore, authorStore, gc,
-	)
 
-	repoService := service.NewRepositoryService(
-		repoStore, *commitService, gc,
-	)
+	commitUsecase := usecases.NewGitCommitUsecase(commitStore, repoStore)
+	gitRepoUsecase := usecases.NewGitRepositoryUsecase(repoStore, commitStore, authorStore, githubClient, *config, *log)
+	authorUsecase := usecases.NewAuthorUseCase(authorStore)
 
-	repoHandler := handlers.NewRepositoryHandler(*repoService, *commitService)
-	authorHandler := handlers.NewAuthorHandler(authorService)
-	commitHandler := handlers.NewCommitHandler(*commitService)
+	repoHandler := handlers.NewRepositoryHandler(gitRepoUsecase)
+	authorHandler := handlers.NewAuthorHandler(authorUsecase)
+	commitHandler := handlers.NewCommitHandler(commitUsecase)
 
 	// Set up HTTP routes
 	mux := http.NewServeMux()
@@ -57,41 +62,48 @@ func main() {
 	routes.NewCommitRouter(mux, *commitHandler)
 	routes.NewRepositoryRouter(mux, *repoHandler)
 
-	interval, err := strconv.Atoi(getenv("MONITOR_INTERVAL", "60"))
-	if err != nil {
-		log.Fatal("Invalid MONITOR_INTERVAL VALUE")
+	err = seedDefaultRepository(config, gitRepoUsecase, *log)
+	if err != nil && err != errcodes.ErrRepoAlreadyAdded {
+		log.Error.Fatalf("failed to seed default repository: %s,", err.Error())
 	}
 
-	if interval < 1 {
-		log.Fatal("Please enter a number greater than zero as the MONITOR_INTERVAL value")
-	}
+	go gitRepoUsecase.ResumeFetching(ctx)
 
-	start_date, err := time.Parse(time.RFC3339, getenv("DEFAULT_START_DATE", "2012-03-06T23:06:50Z"))
-	if err != nil {
-		log.Println(err)
-		log.Fatal("Invalid default start date")
-	}
-
-	cfg := config.Config{
-		DefaultRepository: validators.Repo(getenv("DEFAULT_REPO", "chromium/chromium")),
-		DefaultStartDate:  start_date,
-		MonitorInterval:   interval,
-	}
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-
-	// Seed the database if necessary
-	if err := repoService.Seed(ctx, cfg); err != nil {
-		log.Fatalf("Failed to seed database: %v", err)
-	}
-
-	// Start the background worker
-	go repoService.StartRepositoryMonitor(ctx, time.Duration(cfg.MonitorInterval)*time.Hour)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				log.Info.Println("Program is shutting down...")
+				// Call method to set isFetching to false in DB
+				if err := gitRepoUsecase.UpdateFetchingStatusForAllRepositories(context.Background(), false); err != nil {
+					log.Error.Printf("Error updating index to false: %s", err.Error())
+				}
+				os.Exit(0)
+			default:
+				time.Sleep(5 * time.Second)
+			}
+		}
+	}()
 
 	// Start the HTTP server
-	log.Println("Server is running on port 8080")
+	log.Info.Println("Server is running on port 8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
-		log.Fatalf("Could not start server: %v", err)
+		log.Error.Fatalf("Could not start server: %v", err)
 	}
+}
+
+// seedDefaultRepository seeds a default repository to database
+func seedDefaultRepository(config *config.Config, repositoryUsecase usecases.GitRepositoryUsecase, log log.Log) error {
+	defaultRepo := dtos.RepositoryInput{
+		Name: config.DefaultRepository,
+	}
+	repo, err := repositoryUsecase.StartIndexing(context.Background(), defaultRepo)
+	if err != nil && err != errcodes.ErrNoRecordFound {
+		return err
+	}
+
+	if repo != nil {
+		log.Info.Printf("Successfully seeded default repository: %s", repo.Name)
+	}
+	return err
 }

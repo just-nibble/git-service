@@ -61,11 +61,12 @@ curl --request POST \
   --header 'Content-Type: application/json' \
   --data '{
   "owner": "zostera",
-  "name": "django-bootstrap4",
-  "since": "2020-01-02"
 }'
 ```
 
+#### Response Example
+1. "Repository successfully indexed, its commits are being fetched..." (successfull)
+2. {"error":"unexpected response status: 403"} (rate limited)
 ---
 
 ### 3. Usage
@@ -87,7 +88,7 @@ This action retrieves the top N commit authors, ranked by the number of commits 
 #### Example `curl` Request
 
 ```bash
-curl -X GET "http://localhost:8080/authors/top?n=5" -H "accept: application/json"
+curl -X GET "http://localhost:8080/authors/chromium/chromium/top?n=5" -H "accept: application/json"
 ```
 
 #### Response Example
@@ -127,7 +128,7 @@ This action retrieves all the commits for a given repository, identified by its 
 #### Example `curl` Request
 
 ```bash
-curl -X GET "http://localhost:8080/commits?repo=chromium" -H "accept: application/json"
+curl -X GET "http://localhost:8080/commits/chromium/chromium" -H "accept: application/json"
 ```
 
 #### Response Example
