@@ -113,44 +113,53 @@ func (uc *gitRepoUsecase) startRepoIndexing(ctx context.Context, repo domain.Rep
 
 	uc.log.Info.Printf("fetching commits for repo: %s, starting from page-%d", repo.Name, page)
 	for {
-		commits, morePages, err := uc.gitClient.FetchCommits(ctx, repo, uc.config.DefaultStartDate, uc.config.DefaultEndDate, "", int(page), uc.config.GitCommitFetchPerPage)
-		if err != nil {
-			uc.log.Error.Printf("Failed to fetch commits for repository %s: %s", repo.Name, err.Error())
-			continue
-		}
-
-		// loop through commits and persist each
-		for _, commit := range commits {
-
-			commit.RepoID = repo.ID
-
-			_, err = uc.commitRepository.SaveCommit(ctx, commit)
+		select {
+		case <-ctx.Done():
+			uc.log.Info.Printf("Indexing cancelled for repo: %s", repo.Name)
+			return
+		default:
+			commits, morePages, err := uc.gitClient.FetchCommits(ctx, repo, uc.config.DefaultStartDate, uc.config.DefaultEndDate, "", int(page), uc.config.GitCommitFetchPerPage)
 			if err != nil {
-				uc.log.Error.Printf("error saving commit-id:%s for repo %s %s", commit.Hash, repo.Name, err.Error())
+				uc.log.Error.Printf("Failed to fetch commits for repository %s: %s", repo.Name, err.Error())
+				time.Sleep(5 * time.Second) // Add a delay before retrying
 				continue
 			}
-			lastFetchedCommit = commit.Hash
-		}
 
-		// Update the repository's last fetched commit in the database
-		repo.LastFetchedCommit = lastFetchedCommit
-		repo.LastPage = page
-		_, err = uc.repoMetaRepository.UpdateRepoMetadata(ctx, repo)
-		if err != nil {
-			uc.log.Info.Printf("Error updating repository %s: %v", repo.Name, err)
-			continue
-		}
+			for _, commit := range commits {
+				commit.RepoID = repo.ID
+				_, err = uc.commitRepository.SaveCommit(ctx, commit)
+				if err != nil {
+					if err == context.Canceled {
+						uc.log.Info.Printf("Indexing cancelled while saving commit for repo: %s", repo.Name)
+						return
+					}
+					uc.log.Error.Printf("error saving commit-id:%s for repo %s %s", commit.Hash, repo.Name, err.Error())
+					continue
+				}
+				lastFetchedCommit = commit.Hash
+			}
 
-		if !morePages {
-			// update isFetching to false as flag for start of monitoring
-			repo.Index = false
+			// Update the repository's last fetched commit in the database
+			repo.LastFetchedCommit = lastFetchedCommit
+			repo.LastPage = page
 			_, err = uc.repoMetaRepository.UpdateRepoMetadata(ctx, repo)
 			if err != nil {
-				uc.log.Error.Printf("Error updating isFetching column of repository %s: %s", repo.Name, err.Error())
+				uc.log.Info.Printf("Error updating repository %s: %v", repo.Name, err)
+				continue
 			}
-			break
+
+			if !morePages {
+				// update isFetching to false as flag for start of monitoring
+				repo.Index = false
+				_, err = uc.repoMetaRepository.UpdateRepoMetadata(ctx, repo)
+				if err != nil {
+					uc.log.Error.Printf("Error updating isFetching column of repository %s: %s", repo.Name, err.Error())
+				}
+				break
+			}
+			page++
+
 		}
-		page++
 	}
 }
 
