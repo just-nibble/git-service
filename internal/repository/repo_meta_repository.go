@@ -10,8 +10,7 @@ import (
 type RepositoryMetaRepository interface {
 	SaveRepoMetadata(ctx context.Context, repository domain.RepositoryMeta) (*domain.RepositoryMeta, error)
 	UpdateRepoMetadata(ctx context.Context, repo domain.RepositoryMeta) (*domain.RepositoryMeta, error)
-	RepoMetadataByPublicId(ctx context.Context, publicId string) (*domain.RepositoryMeta, error)
-	RepoMetadataByName(ctx context.Context, name string) (*domain.RepositoryMeta, error)
-	AllRepoMetadata(ctx context.Context) ([]domain.RepositoryMeta, error)
-	UpdateFetchingStateForAllRepos(ctx context.Context, isFetching bool) error
+	RepoMeta(ctx context.Context, name string) (*domain.RepositoryMeta, error)
+	AllRepoMeta(ctx context.Context) ([]domain.RepositoryMeta, error)
+	UpdateRepositoryStatus(ctx context.Context, isFetching bool) error
 }

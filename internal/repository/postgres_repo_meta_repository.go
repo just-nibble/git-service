@@ -30,21 +30,7 @@ func (r *GormRepositoryMetaRepository) SaveRepoMetadata(ctx context.Context, rep
 	return dbRepository.ToDomain(), err
 }
 
-func (r *GormRepositoryMetaRepository) RepoMetadataByPublicId(ctx context.Context, publicId string) (*domain.RepositoryMeta, error) {
-	if ctx.Err() == context.Canceled {
-		return nil, errcodes.ErrContextCancelled
-	}
-
-	var repo Repository
-	err := r.db.WithContext(ctx).Where("public_id = ?", publicId).Find(&repo).Error
-
-	if repo.ID == 0 {
-		return nil, errcodes.ErrNoRecordFound
-	}
-	return repo.ToDomain(), err
-}
-
-func (r *GormRepositoryMetaRepository) RepoMetadataByName(ctx context.Context, name string) (*domain.RepositoryMeta, error) {
+func (r *GormRepositoryMetaRepository) RepoMeta(ctx context.Context, name string) (*domain.RepositoryMeta, error) {
 	if ctx.Err() == context.Canceled {
 		return nil, errcodes.ErrContextCancelled
 	}
@@ -56,7 +42,7 @@ func (r *GormRepositoryMetaRepository) RepoMetadataByName(ctx context.Context, n
 	return repo.ToDomain(), err
 }
 
-func (r *GormRepositoryMetaRepository) AllRepoMetadata(ctx context.Context) ([]domain.RepositoryMeta, error) {
+func (r *GormRepositoryMetaRepository) AllRepoMeta(ctx context.Context) ([]domain.RepositoryMeta, error) {
 	var dbRepositories []Repository
 
 	err := r.db.WithContext(ctx).Find(&dbRepositories).Error
@@ -87,7 +73,7 @@ func (r *GormRepositoryMetaRepository) UpdateRepoMetadata(ctx context.Context, r
 	return dbRepo.ToDomain(), nil
 }
 
-func (r *GormRepositoryMetaRepository) UpdateFetchingStateForAllRepos(ctx context.Context, isFetching bool) error {
+func (r *GormRepositoryMetaRepository) UpdateRepositoryStatus(ctx context.Context, isFetching bool) error {
 	return r.db.WithContext(ctx).Model(&Repository{}).
 		Where("index = ?", true).
 		Update("index", isFetching).

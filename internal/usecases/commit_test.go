@@ -45,7 +45,7 @@ func TestGitCommitUsecase_GetAllCommitsByRepository_Success(t *testing.T) {
 	query := domain.APIPaging{Page: 1, Limit: 10}
 
 	// Update the mock to return domain.RepositoryMeta
-	mockRepoRepository.On("RepoMetadataByName", mock.Anything, "repo1").Return(mockRepoMeta, nil)
+	mockRepoRepository.On("RepoMeta", mock.Anything, "repo1").Return(mockRepoMeta, nil)
 	mockCommitRepository.On("GetCommitsByRepository", mock.Anything, *mockRepoMeta, query).Return(mockCommitsResp, nil)
 
 	uc := NewGitCommitUsecase(mockCommitRepository, mockRepoRepository)

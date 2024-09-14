@@ -13,7 +13,7 @@ import (
 
 	"github.com/just-nibble/git-service/internal/domain"
 	"github.com/just-nibble/git-service/pkg/api"
-	"github.com/rs/zerolog/log"
+	"github.com/just-nibble/git-service/pkg/log"
 )
 
 type GitHubClient struct {
@@ -22,6 +22,7 @@ type GitHubClient struct {
 	fetchInterval time.Duration
 	client        *api.RestClient
 	rateLimit     RateLimit
+	log           log.Log
 }
 
 type RateLimit struct {
@@ -109,7 +110,7 @@ func (g *GitHubClient) FetchRepoMetadata(ctx context.Context, repositoryName str
 
 	var gitHubRepo GitHubMetaResponse
 	if err := json.Unmarshal([]byte(resp.Body), &gitHubRepo); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal repository metadata response")
+		g.log.Error.Println("failed to unmarshal repository metadata response")
 		return nil, errors.New("failed to parse repository metadata response")
 	}
 
@@ -134,7 +135,7 @@ func (g *GitHubClient) FetchCommits(ctx context.Context, repo domain.RepositoryM
 
 	resp, err := g.client.Get(endpoint, nil, g.getHeaders())
 	if err != nil {
-		log.Error().Err(err).Msg("failed to fetch commits")
+		g.log.Error.Println("failed to fetch commits")
 		return nil, false, fmt.Errorf("failed to fetch commits: %w", err)
 	}
 
@@ -146,7 +147,7 @@ func (g *GitHubClient) FetchCommits(ctx context.Context, repo domain.RepositoryM
 
 	if g.rateLimit.Remaining == 0 {
 		waitTime := time.Until(time.Unix(g.rateLimit.Reset, 0))
-		log.Info().Msgf("Rate limit exceeded. Waiting for %v until reset...", waitTime)
+		g.log.Info.Printf("Rate limit exceeded. Waiting for %v until reset...", waitTime)
 		time.Sleep(waitTime)
 	}
 
@@ -156,7 +157,7 @@ func (g *GitHubClient) FetchCommits(ctx context.Context, repo domain.RepositoryM
 
 	var commitRes []GitHubCommitResponse
 	if err := json.Unmarshal([]byte(resp.Body), &commitRes); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal commits response")
+		g.log.Error.Println("failed to unmarshal commits response")
 		return nil, false, errors.New("failed to parse commits response")
 	}
 
@@ -236,7 +237,7 @@ func (g *GitHubClient) updateRateLimit(resp *api.HTTPResponse) {
 	g.rateLimit.Remaining = parseHeaderInt(resp.Headers, "X-Ratelimit-Remaining")
 	g.rateLimit.Reset = parseHeaderInt64(resp.Headers, "X-Ratelimit-Reset")
 
-	log.Info().Msgf("Rate limit: %d, Remaining: %d, Reset at: %v", g.rateLimit.Limit, g.rateLimit.Remaining, time.Unix(g.rateLimit.Reset, 0))
+	g.log.Info.Printf("Rate limit: %d, Remaining: %d, Reset at: %v", g.rateLimit.Limit, g.rateLimit.Remaining, time.Unix(g.rateLimit.Reset, 0))
 }
 
 func (g *GitHubClient) getHeaders() map[string]string {

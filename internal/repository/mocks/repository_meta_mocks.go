@@ -12,7 +12,7 @@ type RepositoryRepository struct {
 	mock.Mock
 }
 
-func (m *RepositoryRepository) RepoMetadataByName(ctx context.Context, repoName string) (*domain.RepositoryMeta, error) {
+func (m *RepositoryRepository) RepoMeta(ctx context.Context, repoName string) (*domain.RepositoryMeta, error) {
 	args := m.Called(ctx, repoName)
 	return args.Get(0).(*domain.RepositoryMeta), args.Error(1)
 }
@@ -31,12 +31,12 @@ func (m *RepositoryRepository) RepoMetadataByPublicId(ctx context.Context, publi
 	return args.Get(0).(*domain.RepositoryMeta), args.Error(1)
 }
 
-func (m *RepositoryRepository) AllRepoMetadata(ctx context.Context) ([]domain.RepositoryMeta, error) {
+func (m *RepositoryRepository) AllRepoMeta(ctx context.Context) ([]domain.RepositoryMeta, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]domain.RepositoryMeta), args.Error(1)
 }
 
-func (m *RepositoryRepository) UpdateFetchingStateForAllRepos(ctx context.Context, isFetching bool) error {
+func (m *RepositoryRepository) UpdateRepositoryStatus(ctx context.Context, isFetching bool) error {
 	args := m.Called(ctx, isFetching)
 	return args.Error(1)
 }

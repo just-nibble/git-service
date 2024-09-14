@@ -13,10 +13,10 @@ import (
 )
 
 type RepositoryHandler struct {
-	gitRepositoryUsecase usecases.GitRepositoryUsecase
+	gitRepositoryUsecase usecases.RepoMetaUsecase
 }
 
-func NewRepositoryHandler(gitRepositoryUsecase usecases.GitRepositoryUsecase) *RepositoryHandler {
+func NewRepositoryHandler(gitRepositoryUsecase usecases.RepoMetaUsecase) *RepositoryHandler {
 	return &RepositoryHandler{
 		gitRepositoryUsecase: gitRepositoryUsecase,
 	}
@@ -37,7 +37,7 @@ func (rh RepositoryHandler) AddRepository(w http.ResponseWriter, r *http.Request
 
 	ctx := context.Background()
 
-	_, err := rh.gitRepositoryUsecase.StartIndexing(ctx, req)
+	_, err := rh.gitRepositoryUsecase.InitiateIndexing(ctx, req)
 	if err != nil {
 		if err == errcodes.ErrRepoAlreadyAdded {
 			response.ErrorResponse(w, http.StatusBadRequest, err.Error())
@@ -51,7 +51,7 @@ func (rh RepositoryHandler) AddRepository(w http.ResponseWriter, r *http.Request
 }
 
 func (rh RepositoryHandler) FetchAllRepositories(w http.ResponseWriter, r *http.Request) {
-	repos, err := rh.gitRepositoryUsecase.GetAll(r.Context())
+	repos, err := rh.gitRepositoryUsecase.RetrieveAllRepos(r.Context())
 	if err != nil {
 		response.ErrorResponse(w, http.StatusInternalServerError, err.Error())
 		return
@@ -105,7 +105,7 @@ func (rh RepositoryHandler) FetchRepository(w http.ResponseWriter, r *http.Reque
 
 	ctx := r.Context()
 
-	repo, err := rh.gitRepositoryUsecase.GetByName(ctx, repoName)
+	repo, err := rh.gitRepositoryUsecase.FindRepoByName(ctx, repoName)
 	if err != nil {
 		if err == errcodes.ErrNoRecordFound {
 			response.ErrorResponse(w, http.StatusBadRequest, "no repository found")

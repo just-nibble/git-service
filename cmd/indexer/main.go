@@ -49,7 +49,7 @@ func main() {
 	commitRepository := repository.NewGormCommitRepository(dB)
 
 	commitUsecase := usecases.NewGitCommitUsecase(commitRepository, repoRepository)
-	gitRepoUsecase := usecases.NewGitRepositoryUsecase(repoRepository, commitRepository, authorRepository, githubClient, *config, *log)
+	gitRepoUsecase := usecases.NewrepoMetaUsecase(repoRepository, commitRepository, authorRepository, githubClient, *config, *log)
 	authorUsecase := usecases.NewAuthorUseCase(authorRepository)
 
 	repoHandler := handlers.NewRepositoryHandler(gitRepoUsecase)
@@ -67,7 +67,7 @@ func main() {
 		log.Error.Fatalf("failed to seed default repository: %s,", err.Error())
 	}
 
-	go gitRepoUsecase.ResumeFetching(ctx)
+	go gitRepoUsecase.ResumeIndexing(ctx)
 
 	go func() {
 		for {
@@ -75,7 +75,7 @@ func main() {
 			case <-ctx.Done():
 				log.Info.Println("Program is shutting down...")
 				// Call method to set isFetching to false in DB
-				if err := gitRepoUsecase.UpdateFetchingStatusForAllRepositories(context.Background(), false); err != nil {
+				if err := gitRepoUsecase.ModifyRepoStatus(context.Background(), false); err != nil {
 					log.Error.Printf("Error updating index to false: %s", err.Error())
 				}
 				os.Exit(0)
@@ -93,11 +93,12 @@ func main() {
 }
 
 // seedDefaultRepository seeds a default repository to database
-func seedDefaultRepository(config *config.Config, repositoryUsecase usecases.GitRepositoryUsecase, log log.Log) error {
+func seedDefaultRepository(config *config.Config, repositoryUsecase usecases.RepoMetaUsecase, log log.Log) error {
 	defaultRepo := dtos.RepositoryInput{
 		Name: config.DefaultRepository,
 	}
-	repo, err := repositoryUsecase.StartIndexing(context.Background(), defaultRepo)
+
+	repo, err := repositoryUsecase.InitiateIndexing(context.Background(), defaultRepo)
 	if err != nil && err != errcodes.ErrNoRecordFound {
 		return err
 	}

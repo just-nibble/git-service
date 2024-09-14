@@ -25,7 +25,7 @@ func NewGitCommitUsecase(commitRepository repository.CommitRepository, repositor
 
 func (u *gitCommitUsecase) GetAllCommitsByRepository(ctx context.Context, repoName string, query domain.APIPaging) ([]domain.Commit, error) {
 	// Fetch commits from the dbbase
-	repoMetaData, err := u.repositoryMetaRepository.RepoMetadataByName(ctx, repoName)
+	repoMetaData, err := u.repositoryMetaRepository.RepoMeta(ctx, repoName)
 	if err != nil {
 		return nil, err
 	}
