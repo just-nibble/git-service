@@ -236,8 +236,6 @@ func (g *GitHubClient) updateRateLimit(resp *api.HTTPResponse) {
 	g.rateLimit.Limit = parseHeaderInt(resp.Headers, "X-Ratelimit-Limit")
 	g.rateLimit.Remaining = parseHeaderInt(resp.Headers, "X-Ratelimit-Remaining")
 	g.rateLimit.Reset = parseHeaderInt64(resp.Headers, "X-Ratelimit-Reset")
-
-	g.log.Info.Printf("Rate limit: %d, Remaining: %d, Reset at: %v", g.rateLimit.Limit, g.rateLimit.Remaining, time.Unix(g.rateLimit.Reset, 0))
 }
 
 func (g *GitHubClient) getHeaders() map[string]string {
